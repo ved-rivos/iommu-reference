@@ -2,7 +2,7 @@ CFLAGS := -fPIC -O0 -g -Wall -Werror
 CC := gcc
 VERSION := 0
 NAME := iommu
-SRCS = iommu_reset.c iommu_reg.c
+SRCS = iommu_reset.c iommu_reg.c iommu_translate.c iommu_faults.c
 SRCS_APP = test_app.c
 OBJS = $(SRCS:.c=.o)
 

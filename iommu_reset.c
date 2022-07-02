@@ -1,4 +1,8 @@
-#include "iommu_reg.h"
+#include "iommu_registers.h"
+#include "iommu_data_structures.h"
+#include "iommu_req_rsp.h"
+#include "iommu_fault.h"
+
 // This structure is used to determine if a register is a read only or is
 // writeable. The bits set to 1 are not writeable
 iommu_regs_t g_reg_types;

@@ -1,4 +1,5 @@
-#include "iommu_reg.h"
+#include "iommu_registers.h"
+#include "iommu_data_structures.h"
 int is_access_valid(
     uint16_t offset, uint8_t num_bytes) {
     // The IOMMU behavior for register accesses where the 

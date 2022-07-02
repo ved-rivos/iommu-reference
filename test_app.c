@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <inttypes.h>
-#include "iommu_reg.h"
-int 
+#include "iommu_registers.h"
+#include "iommu_data_structures.h"
+
+int
 main(void) {
     capabilities_t cap = {0};
     fctrl_t fctrl;
