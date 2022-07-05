@@ -1,3 +1,10 @@
+// Copyright (c) 2022 by Rivos Inc.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+// Author: ved@rivosinc.com
+#ifndef __IOMMU_FAULT_H__
+#define __IOMMU_FAULT_H__
+
 // The TTYP field reports inbound transaction type
 // Fault record `TTYP` field encodings
 // |TTYP   | Description 
@@ -49,3 +56,9 @@ typedef union {
     };
     uint64_t raw[4];
 } fault_rec_t;
+#define ACCESS_FAULT    0x01
+#define DATA_CORRUPTION 0x02
+
+extern void report_fault(uint16_t cause, uint64_t iotval, uint64_t iotval2, uint8_t TTYP, uint8_t dtf,
+                  uint32_t device_id, uint8_t pid_valid, uint32_t process_id, uint8_t priv_req);
+#endif // __IOMMU_FAULT_H__

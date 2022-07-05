@@ -1,107 +1,19 @@
-#include "iommu_registers.h"
-#include "iommu_data_structures.h"
-#include "iommu_req_rsp.h"
-#include "iommu_fault.h"
+// Copyright (c) 2022 by Rivos Inc.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+// Author: ved@rivosinc.com
 
-#define FAULT_QUEUE 0
+#include "iommu.h"
 
-extern void write_frec(fault_rec_t *frec, uint64_t frec_addr, uint8_t size, uint8_t *access_fault, uint8_t *data_corruption);
-extern void generate_interrupt(uint8_t unit);
 void 
-stop_and_report_fault(
-    char *cause_string, uint16_t cause, uint64_t iotval2, uint8_t dtf,
-    hb_to_iommu_req_t req, iommu_to_hb_rsp_msg_t *rsp_msg) {
+report_fault(uint16_t cause, uint64_t iotval, uint64_t iotval2, uint8_t TTYP, uint8_t dtf,
+             uint32_t device_id, uint8_t pid_valid, uint32_t process_id, uint8_t priv_req) {
     fault_rec_t frec;
     uint32_t fqh;
     uint32_t fqt;
     uint64_t fqb;
     uint64_t frec_addr;
-    uint8_t access_fault, data_corruption;
-
-    if ( req.cmd == TRANS_REQUEST ) {
-        if ( req.pid_valid ) {
-            rsp_msg->pid_valid = 1;
-            rsp_msg->process_id = req.process_id;
-            rsp_msg->trsp.Priv = req.priv_req;
-        } else {
-            rsp_msg->pid_valid = 0;
-            rsp_msg->trsp.Priv = 0;
-        }
-        // ATS translation requests that encounter a configuration error results in a
-        // Completer Abort (CA) response to the requester. The following cause codes
-        // belong to this category:
-        // * Instruction access fault (cause = 1)
-        // * Read access fault (cause = 5)
-        // * Write/AMO access fault (cause = 7)
-        // * MSI PTE load access fault (cause = 261)
-        // * MSI PTE misconfigured (cause = 263)
-        // * PDT entry load access fault (cause = 265)
-        // * PDT entry misconfigured (cause = 267)
-        if ( (cause == 1) || (cause == 5) || (cause == 7) || (cause == 261) || 
-             (cause == 263) || (cause == 265) || (cause == 267) )
-            rsp_msg->status = COMPLETER_ABORT;
-        
-
-        // If there is a permanent error or if ATS transactions are disabled then a
-        // Unsupported Request (UR) response is generated. The following cause codes
-        // belong to this category:
-        // * All inbound transactions disallowed (cause = 256)
-        // * DDT entry load access fault (cause = 257)
-        // * DDT entry not valid (cause = 258)
-        // * DDT entry misconfigured (cause = 259)
-        // * Transaction type disallowed (cause = 260)
-        if ( (cause == 256) || (cause == 257) || (cause == 258) || (cause == 259) || (cause == 260) ) 
-            rsp_msg->status = UNSUPPORTED_REQUEST;
-
-        // When translation could not be completed due to PDT entry being not present, MSI
-        // PTE being not present, or first and/or second stage PTE being not present or
-        // misconfigured then a Success Response with R and W bits set to 0 is generated.
-        // The translated address returned with such completions is undefined. The
-        // following cause codes belong to this category:
-        // * Instruction page fault (cause = 12)
-        // * Read page fault (cause = 13)
-        // * Write/AMO page fault (cause = 15)
-        // * Instruction guest page fault (cause = 20)
-        // * Read guest-page fault (cause = 21)
-        // * Write/AMO guest-page fault (cause = 23)
-        // * PDT entry not valid (cause = 266)
-        // * MSI PTE not valid (cause = 262)
-        if ( req.tr.at == ADDR_TYPE_PCIE_ATS_TRANSLATION_REQUEST ) {
-            rsp_msg->status = SUCCESS;
-            rsp_msg->trsp.R = 0;
-            rsp_msg->trsp.W = 0;
-
-            // When a Success response is generated for a ATS translation request, the setting
-            // of the Priv, N, CXL.io, and AMA fields is as follows:
-            // * Priv field of the ATS translation completion is always set to 0 if the request
-            //   does not have a PASID. When a PASID is present then the Priv field is set to
-            //   the value in "Privilege Mode Requested" field as the permissions provided
-            //   correspond to those the privilege mode indicate in the request.
-            // * N field of the ATS translation completion is always set to 0. The device may
-            //   use other means to determine if the No-snoop flag should be set in the
-            //   translated requests.
-            // * If requesting device is not a CXL device then CXL.io is set to 0.
-            // * If requesting device is a CXL type 1 or type 2 device and the memory
-            //   type, as determined by the Svpbmt extension, is NC or IO then the CXL.io
-            //   bit is set to 1. If the memory type is PMA then the determination of the
-            //   setting of this bit is `UNSPECIFIED`. If the Svpbmt extension is not
-            //    supported then the setting of this bit is `UNSPECIFIED`.
-            // * The AMA field is by default set to 000b. The IOMMU may support an
-            //   implementation specific method to provide other encodings.
-            rsp_msg->trsp.PBMT = 0;
-            rsp_msg->trsp.CXL_IO = 0;
-            rsp_msg->trsp.AMA = 0;
-            rsp_msg->trsp.N = 0;
-            rsp_msg->trsp.Exe = 0;
-            rsp_msg->trsp.Global = 0;
-
-            // No faults are logged in the fault queue for PCIe ATS Translation Requests.
-            return;
-        } else {
-            // Translated and Untranslated requests
-            rsp_msg->status = UNSUPPORTED_REQUEST;
-        }
-    }
+    uint8_t status;
 
     // The fault-queue enable bit enables the fault-queue when set to 1. 
     // The fault-queue is active if fqon reads 1. IOMMU behavior on
@@ -171,19 +83,16 @@ stop_and_report_fault(
          (cause != 258) && (cause != 259) && (cause != 273) ) {
         return;
     }
-    if ( req.cmd == INVAL_COMPLETION ) {
-        // unexpected - terminate
-        *((char *)0) = 0;
-    }
+
     // DID holds the device_id of the transaction. 
     // If PV is 0, then PID and PRIV are 0. If PV is 1, the PID
     // holds a process_id of the transaction and if the privilege 
     // of the transaction was Supervisor then PRIV bit is 1 else its 0. 
-    frec.DID = req.device_id;
-    if ( req.pid_valid ) {
-        frec.PID = req.process_id;
-        frec.PV = req.pid_valid;
-        frec.PRIV = req.priv_req;
+    frec.DID = device_id;
+    if ( pid_valid ) {
+        frec.PID = process_id;
+        frec.PV = pid_valid;
+        frec.PRIV = priv_req;
     } else {
         frec.PID = 0;
         frec.PV = 0;
@@ -191,43 +100,10 @@ stop_and_report_fault(
     }
     frec.reserved = 0;
     frec.custom = 0;
+    frec.iotval = iotval;
+    frec.iotval2 = iotval2;
+    frec.TTYP = TTYP;
 
-    if ( req.cmd == TRANS_REQUEST ) {
-        // If the TTYP is a transaction with an IOVA then its reported in iotval. 
-        frec.iotval = req.tr.iova;
-        frec.iotval2 = iotval2;
-
-        if ( req.tr.at == ADDR_TYPE_UNTRANSLATED && req.tr.read_writeAMO == READ ) {
-            if ( req.pid_valid && req.exec_req ) {
-                frec.TTYP = UNTRANSLATED_READ_FOR_EXECUTE_TRANSACTION;
-            } else {
-                frec.TTYP = UNTRANSLATED_READ_TRANSACTION;
-            }
-        }
-        if ( req.tr.at == ADDR_TYPE_UNTRANSLATED && req.tr.read_writeAMO == WRITE_AMO )
-            frec.TTYP = UNTRANSLATED_WRITE_AMO_TRANSACTION;
-
-        if ( req.tr.at == ADDR_TYPE_TRANSLATED && req.tr.read_writeAMO == READ ) {
-            if ( req.pid_valid && req.exec_req ) {
-                frec.TTYP = TRANSLATED_READ_FOR_EXECUTE_TRANSACTION;
-            } else {
-                frec.TTYP = TRANSLATED_READ_TRANSACTION;
-            }
-        }
-
-        if ( req.tr.at == ADDR_TYPE_TRANSLATED && req.tr.read_writeAMO == WRITE_AMO )
-            frec.TTYP = TRANSLATED_WRITE_AMO_TRANSACTION;
-
-        if ( req.tr.at == ADDR_TYPE_PCIE_ATS_TRANSLATION_REQUEST ) {
-            frec.TTYP = PCIE_ATS_TRANSLATION_REQUEST;
-        }
-    }
-    if ( req.cmd == PAGE_REQUEST ) {
-        // If the TTYP is a message request then the message
-        // code is reported in iotval.
-        frec.iotval = PAGE_REQ_MSG_CODE;
-        frec.iotval2 = 0;
-    }
     // Fault/Event queue is an in-memory queue data structure used to report events
     // and faults raised when processing transactions. Each fault record is 32 bytes.
     // The PPN of the base of this in-memory queue and the size of the queue is 
@@ -261,14 +137,13 @@ stop_and_report_fault(
     // from 0 to 1 or when a new fault record is produced in the fault-queue, fault
     // interrupt pending (fip) bit is set in the fqcsr.
     frec_addr = ((fqb * 4096) | (fqh * 32));
-    write_frec(&frec, frec_addr, 32, &access_fault, &data_corruption);
-    if ( access_fault || data_corruption ) {
+    status = write_memory((char *)&frec, frec_addr, 32);
+    if ( (status & ACCESS_FAULT) || (status & DATA_CORRUPTION) ) {
         g_reg_file.fqcsr.fqmf = 1;
-        generate_interrupt(FAULT_QUEUE);
-        return;
+    } else {
+        fqh = (fqh + 1) & ((1 << (g_reg_file.cqb.log2szm1 + 1)) - 1);
+        g_reg_file.fqh.index = fqh;
     }
-    fqh = (fqh + 1) & ((1 << (g_reg_file.cqb.log2szm1 + 1)) - 1);
-    g_reg_file.fqh.index = fqh;
     generate_interrupt(FAULT_QUEUE);
     return;
 }

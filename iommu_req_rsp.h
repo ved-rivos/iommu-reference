@@ -1,3 +1,10 @@
+// Copyright (c) 2022 by Rivos Inc.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+// Author: ved@rivosinc.com
+#ifndef __IOMMU_REQ_RSP_H__
+#define __IOMMU_REQ_RSP_H__
+
 typedef enum {
     // 00 - Untranslated  - IOMMU may treat the address as either virtual or physical.
     // 01 - Trans. Req.   - The IOMMU will return the translation of the address
@@ -13,17 +20,16 @@ typedef enum {
     ADDR_TYPE_TRANSLATED = 2
 } addr_type_t;
 #define READ      0
-#define WRITE_AMO 1
+#define WRITE     1
+#define WRITE_AMO 2
 typedef struct {
     addr_type_t at;
     uint64_t    iova;
     uint32_t    length;
-    uint32_t    read_writeAMO;
+    uint32_t    read_write_AMO;
+    uint32_t    msi_wr_data;
 } iommu_trans_req_t;
 typedef struct {
-    uint32_t device_id;
-    uint32_t pid_valid;
-    uint32_t process_id;
     uint64_t payload;
 } iommu_page_req_t;
 typedef struct {
@@ -49,17 +55,18 @@ typedef struct {
     uint8_t   no_write;
     uint8_t   exec_req;
     uint8_t   priv_req;
+    uint8_t   is_cxl_dev;
     // Pick based on the command
     union {
-        iommu_trans_req_t  tr;
-        iommu_page_req_t   pr;
+        iommu_trans_req_t tr;
+        iommu_page_req_t  pr;
         iommu_inv_compl_t ic;
     };
 } hb_to_iommu_req_t;
 
 // Translation response from iommu to host bridge
 typedef struct {
-    uint64_t pa;
+    uint64_t PPN;
     uint8_t S;
     uint8_t N;
     uint8_t CXL_IO;
@@ -71,6 +78,9 @@ typedef struct {
     uint8_t Exe;
     uint8_t AMA;
     uint8_t PBMT;
+    uint8_t is_msi;
+    uint8_t is_mrif_wr;
+    uint8_t mrif_nid;
 } iommu_trans_rsp_t;
 
 typedef struct {
@@ -118,6 +128,22 @@ typedef enum {
     // Completer.
     COMPLETER_ABORT = 4
 } status_t;
+typedef struct {
+    uint32_t  rid;
+    uint8_t   pv;
+    uint32_t  pid;
+    uint8_t   dsv;
+    uint8_t   dseg;
+    uint64_t  payload;
+} iommu_prgr_t;
+typedef struct {
+    uint32_t  rid;
+    uint8_t   pv;
+    uint32_t  pid;
+    uint8_t   dsv;
+    uint8_t   dseg;
+    uint64_t  payload;
+} iommu_inv_req_t;
 
 // IOMMU response to requests from the IO bridge
 // IOMMU generated notifications (invalidation requests and
@@ -125,20 +151,12 @@ typedef enum {
 typedef struct {
     iommu_to_hb_cmd_t cmd;
     status_t  status;
-    // Device ID input
-    uint32_t  device_id;
-    // Process ID input (e.g. PASID present)
-    uint32_t  pid_valid;
-    uint32_t  process_id;
-    uint8_t   no_write;
-    uint8_t   exec_req;
-    uint8_t   priv_req;
-    uint64_t  payload;
     // Pick based on the command
     union {
         iommu_trans_rsp_t trsp;
-        uint64_t          prg_payload;
-        uint64_t          inv_req_payload;
+        iommu_prgr_t      prgr;
+        iommu_inv_req_t   invreq;
     };
 } iommu_to_hb_rsp_msg_t;
 
+#endif // __IOMMU_REQ_RSP_H__

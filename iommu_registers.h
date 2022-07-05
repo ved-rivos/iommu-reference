@@ -1,10 +1,10 @@
+// Copyright (c) 2022 by Rivos Inc.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+// Author: ved@rivosinc.com
+
 #ifndef _IOMMU_REGS_H_
 #define _IOMMU_REGS_H_
-#include <stdio.h>
-#include <time.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 // The `capabilities` register is a read-only register reporting features supported
 // by the IOMMU. Each field if not clear indicates presence of that feature in
 // the IOMMU. At reset, the register shall contain the IOMMU supported features.
@@ -153,97 +153,124 @@ typedef union {
 } ddtp_t;
 // This 64-bits register (RW) holds the PPN of the root page of the command-queue
 // and number of entries in the queue. Each command is 16 bytes.
-typedef struct {
-    uint64_t log2szm1: 5;      // The `LOG2SZ-1` field holds the number of
-                               // entries in command-queue as a log to base 2
-                               // minus 1. 
-                               // A value of 0 indicates a queue of 2 entries.
-                               // Each IOMMU command is 16-bytes. 
-                               // If the command-queue has 256 or fewer entries
-                               // then the base address of the queue is always 
-                               // aligned to 4-KiB. If the command-queue has more
-                               // than 256 entries then the command-queue 
-                               // base address must be naturally aligned to
-                               // `2^LOG2SZ^ x 16`. 
-    uint64_t ppn     : 44;     // Holds the `PPN` of the root page of the
-                               // in-memory command-queue used by software to
-                               // queue commands to the IOMMU. 
-    uint64_t reserved: 15;     // Reserved for standard use
+typedef union {
+    struct {
+        uint64_t log2szm1: 5;      // The `LOG2SZ-1` field holds the number of
+                                   // entries in command-queue as a log to base 2
+                                   // minus 1. 
+                                   // A value of 0 indicates a queue of 2 entries.
+                                   // Each IOMMU command is 16-bytes. 
+                                   // If the command-queue has 256 or fewer entries
+                                   // then the base address of the queue is always 
+                                   // aligned to 4-KiB. If the command-queue has more
+                                   // than 256 entries then the command-queue 
+                                   // base address must be naturally aligned to
+                                   // `2^LOG2SZ^ x 16`. 
+        uint64_t ppn     : 44;     // Holds the `PPN` of the root page of the
+                                   // in-memory command-queue used by software to
+                                   // queue commands to the IOMMU. 
+        uint64_t reserved: 15;     // Reserved for standard use
+    };
+    uint64_t raw;
 } cqb_t;
 // This 32-bits register (RO) holds the index into the command-queue where
 // the IOMMU will fetch the next command.
-typedef struct {
-    uint32_t index;            // Holds the `index` into the command-queue from where
-                               // the next command will be fetched next by the IOMMU.
+typedef union {
+    struct {
+        uint32_t index;            // Holds the `index` into the command-queue from where
+                                   // the next command will be fetched next by the IOMMU.
+    };
+    uint32_t raw;
 } cqh_t;
 // This 32-bits register (RO) holds the index into the command-queue where
 // the IOMMU will fetch the next command.
-typedef struct {
-    uint32_t index;            // Holds the `index` into the command-queue where
-                               // software queues the next command for IOMMU.  Only
-                               // `LOG2SZ:0` bits are writable when the queue is 
-                               // in enabled state (i.e., `cqsr.cqon == 1`). 
+typedef union {
+    struct {
+        uint32_t index;            // Holds the `index` into the command-queue where
+                                   // software queues the next command for IOMMU.  Only
+                                   // `LOG2SZ:0` bits are writable when the queue is 
+                                   // in enabled state (i.e., `cqsr.cqon == 1`). 
+    };
+    uint32_t raw;
 } cqt_t;
 // This 64-bits register (RW) holds the PPN of the root page of the fault-queue
 // and number of entries in the queue. Each fault record is 32 bytes.
-typedef struct {
-    uint64_t log2szm1: 5;      // The `LOG2SZ-1` field holds the number of
-                               // entries in fault-queue as a log-to-base-2
-                               // minus 1. A value of 0 indicates a queue of 2
-                               // entries. Each fault record is 32-bytes. 
-                               // If the fault-queue has 128 or fewer entries then
-                               // the base address of the queue is always aligned 
-                               // to 4-KiB. If the fault-queue has more than 128  
-                               // entries then the fault-queue base address must  
-                               // be naturally aligned to `2^LOG2SZ^ x 32`. 
-    uint64_t ppn     : 44;     // Holds the `PPN` of the root page of the
-                               // in-memory fault-queue used by IOMMU to queue
-                               // fault record.
-    uint64_t reserved: 15;     // Reserved for standard use
+typedef union {
+    struct {
+        uint64_t log2szm1: 5;      // The `LOG2SZ-1` field holds the number of
+                                   // entries in fault-queue as a log-to-base-2
+                                   // minus 1. A value of 0 indicates a queue of 2
+                                   // entries. Each fault record is 32-bytes. 
+                                   // If the fault-queue has 128 or fewer entries then
+                                   // the base address of the queue is always aligned 
+                                   // to 4-KiB. If the fault-queue has more than 128  
+                                   // entries then the fault-queue base address must  
+                                   // be naturally aligned to `2^LOG2SZ^ x 32`. 
+        uint64_t ppn     : 44;     // Holds the `PPN` of the root page of the
+                                   // in-memory fault-queue used by IOMMU to queue
+                                   // fault record.
+        uint64_t reserved: 15;     // Reserved for standard use
+    };
+    uint64_t raw;
 } fqb_t;
 
 // This 32-bits register (RW) holds the index into fault-queue where the
 // software will fetch the next fault record.
-typedef struct {
-    uint32_t index;            // Holds the `index` into the fault-queue from which
-                               // software reads the next fault record.  Only
-                               // `LOG2SZ:0` bits are writable when the queue is
-                               // in enabled state (i.e., `fqsr.fqon == 1`).
+typedef union {
+    struct {
+        uint32_t index;            // Holds the `index` into the fault-queue from which
+                                   // software reads the next fault record.  Only
+                                   // `LOG2SZ:0` bits are writable when the queue is
+                                   // in enabled state (i.e., `fqsr.fqon == 1`).
+    };
+    uint32_t raw;
 } fqh_t;
 // This 32-bits register (RO) holds the index into the fault-queue where the 
 // IOMMU queues the next fault record.
-typedef struct {
-    uint32_t index;            // Holds the `index` into the fault-queue where IOMMU
-                               // writes the next fault record.
+typedef union {
+    struct {
+        uint32_t index;            // Holds the `index` into the fault-queue where IOMMU
+                                   // writes the next fault record.
+    };
+    uint32_t raw;
 } fqt_t;
 // This 64-bits register (RW) holds the PPN of the root page of the
 // page-request-queue and number of entries in the queue. Each page-request
 // message is 16 bytes.
-typedef struct {
-    uint64_t log2szm1: 5;      // The `LOG2SZ-1` field holds the number of entries
-                               // in page-request-queue as a log-to-base-2 minus 1.
-                               // A value of 0 indicates a queue of 2 entries. 
-                               // Each page-request is 16-bytes. If the 
-                               // page-request-queue has 256 or fewer entries
-                               // then the base address of the queue is always
-                               // aligned to 4-KiB.
-                               // If the page-request-queue has more than 256
-                               // entries then the page-request-queue base address
-                               // must be naturally aligned to `2^LOG2SZ^ x 16`.
-    uint64_t ppn     : 44;     // Holds the `PPN` of the root page of the
-                               // in-memory page-request-queue used by IOMMU to
-                               // queue "Page Request" messages.
-    uint64_t reserved: 15;     // Reserved for standard use
+typedef union {
+    struct {
+        uint64_t log2szm1: 5;      // The `LOG2SZ-1` field holds the number of entries
+                                   // in page-request-queue as a log-to-base-2 minus 1.
+                                   // A value of 0 indicates a queue of 2 entries. 
+                                   // Each page-request is 16-bytes. If the 
+                                   // page-request-queue has 256 or fewer entries
+                                   // then the base address of the queue is always
+                                   // aligned to 4-KiB.
+                                   // If the page-request-queue has more than 256
+                                   // entries then the page-request-queue base address
+                                   // must be naturally aligned to `2^LOG2SZ^ x 16`.
+        uint64_t ppn     : 44;     // Holds the `PPN` of the root page of the
+                                   // in-memory page-request-queue used by IOMMU to
+                                   // queue "Page Request" messages.
+        uint64_t reserved: 15;     // Reserved for standard use
+    };
+    uint64_t raw;
 } pqb_t;
 // This 32-bits register (RW) holds the index into the page-request-queue where
 // software will fetch the next page-request.
-typedef struct {
-    uint32_t index;
+typedef union {
+    struct {
+        uint32_t index;
+    };
+    uint32_t raw;
 } pqh_t;
 // This 32-bits register (RW) holds the index into the page-request-queue where
 // software will fetch the next page-request.
-typedef struct {
-    uint32_t index;
+typedef union {
+    struct {
+        uint32_t index;
+    };
+    uint32_t raw;
 } pqt_t;
 // This 32-bits register (RW) is used to control the operations and report the
 // status of the command-queue.
@@ -383,42 +410,72 @@ typedef union {
     uint32_t raw;
 } ipsr_t;
 typedef struct {
-    uint32_t cy      :1;
-    uint32_t hpm     :31;
+    struct {
+        uint32_t cy      :1;
+        uint32_t hpm     :31;
+    };
+    uint32_t raw;
 } iocountovf_t;
-typedef struct {
-    uint32_t cy      :1;
-    uint32_t hpm     :31;
+typedef union {
+    struct {
+        uint32_t cy      :1;
+        uint32_t hpm     :31;
+    };
+    uint32_t raw;
 } iocountinh_t;
-typedef struct {
-    uint64_t counter :63;
-    uint64_t of      :1;
+typedef union {
+    struct {
+        uint64_t counter :63;
+        uint64_t of      :1;
+    };
+    uint64_t raw;
 } iohpmcycles_t;
 typedef struct {
     uint64_t counter :64;
 } iohpmctr_t;
-typedef struct {
-    uint64_t eventID :15;
-    uint64_t dmask   :1;
-    uint64_t pid_pscid :20;
-    uint64_t did_gscid :24;
-    uint64_t pv_pscv :1;
-    uint64_t dv_gscv :1;
-    uint64_t idt     :1;
-    uint64_t of      :1;
+typedef union {
+    struct {
+        uint64_t eventID :15;
+        uint64_t dmask   :1;
+        uint64_t pid_pscid :20;
+        uint64_t did_gscid :24;
+        uint64_t pv_pscv :1;
+        uint64_t dv_gscv :1;
+        uint64_t idt     :1;
+        uint64_t of      :1;
+    };
+    uint64_t raw;
 } iohpmevt_t;
-typedef struct {
-    uint64_t civ     :4;
-    uint64_t fiv     :4;
-    uint64_t pmiv    :4;
-    uint64_t piv     :4;
-    uint64_t reserved:16;
-    uint64_t custom  :32;
+typedef union {
+    struct {
+        uint64_t civ     :4;
+        uint64_t fiv     :4;
+        uint64_t pmiv    :4;
+        uint64_t piv     :4;
+        uint64_t reserved:16;
+        uint64_t custom  :32;
+    };
+    uint64_t raw;
 } icvec_t;
+typedef union {
+    struct {
+        uint64_t zero:2;
+        uint64_t addr:54;
+        uint64_t reserved:8;
+    };
+    uint64_t raw;
+} msi_addr_t;
+typedef union {
+    struct {
+        uint32_t m:1;
+        uint32_t reserved:31;
+    };
+    uint32_t raw;
+} msi_vec_ctrl_t;
 typedef struct {
-    uint64_t msi_addr;
+    msi_addr_t msi_addr;
     uint32_t msi_data;
-    uint32_t msi_vec_ctrl;
+    msi_vec_ctrl_t msi_vec_ctrl;
 } msi_cfg_tbl_t;
 // The IOMMU provides a memory-mapped programming interface. The memory-mapped
 // registers of each IOMMU are located within a naturally aligned 4-KiB region
@@ -479,10 +536,122 @@ typedef union {                        // |Ofst|Name            |Size|Descriptio
 #define IOCNTOVF_OFFSET      88
 #define IOCNTINH_OFFSET      92
 #define IOHPMCYCLES_OFFSET   96
+
 #define IOHPMCTR1_OFFSET     104
+#define IOHPMCTR2_OFFSET     112
+#define IOHPMCTR3_OFFSET     120
+#define IOHPMCTR4_OFFSET     128
+#define IOHPMCTR5_OFFSET     136
+#define IOHPMCTR6_OFFSET     144
+#define IOHPMCTR7_OFFSET     152
+#define IOHPMCTR8_OFFSET     160
+#define IOHPMCTR9_OFFSET     168
+#define IOHPMCTR10_OFFSET    176
+#define IOHPMCTR11_OFFSET    184
+#define IOHPMCTR12_OFFSET    192
+#define IOHPMCTR13_OFFSET    200
+#define IOHPMCTR14_OFFSET    208
+#define IOHPMCTR15_OFFSET    216
+#define IOHPMCTR16_OFFSET    224
+#define IOHPMCTR17_OFFSET    232
+#define IOHPMCTR18_OFFSET    240
+#define IOHPMCTR19_OFFSET    248
+#define IOHPMCTR20_OFFSET    256
+#define IOHPMCTR21_OFFSET    264
+#define IOHPMCTR22_OFFSET    272
+#define IOHPMCTR23_OFFSET    280
+#define IOHPMCTR24_OFFSET    288
+#define IOHPMCTR25_OFFSET    296
+#define IOHPMCTR26_OFFSET    304
+#define IOHPMCTR27_OFFSET    312
+#define IOHPMCTR28_OFFSET    320
+#define IOHPMCTR29_OFFSET    328
+#define IOHPMCTR30_OFFSET    336
+#define IOHPMCTR31_OFFSET    344
+
 #define IOHPMEVT1_OFFSET     352
+#define IOHPMEVT2_OFFSET     360
+#define IOHPMEVT3_OFFSET     368
+#define IOHPMEVT4_OFFSET     376
+#define IOHPMEVT5_OFFSET     384
+#define IOHPMEVT6_OFFSET     392
+#define IOHPMEVT7_OFFSET     400
+#define IOHPMEVT8_OFFSET     408
+#define IOHPMEVT9_OFFSET     416
+#define IOHPMEVT10_OFFSET    424
+#define IOHPMEVT11_OFFSET    432
+#define IOHPMEVT12_OFFSET    440
+#define IOHPMEVT13_OFFSET    448
+#define IOHPMEVT14_OFFSET    456
+#define IOHPMEVT15_OFFSET    464
+#define IOHPMEVT16_OFFSET    472
+#define IOHPMEVT17_OFFSET    480
+#define IOHPMEVT18_OFFSET    488
+#define IOHPMEVT19_OFFSET    496
+#define IOHPMEVT20_OFFSET    504
+#define IOHPMEVT21_OFFSET    512
+#define IOHPMEVT22_OFFSET    520
+#define IOHPMEVT23_OFFSET    528
+#define IOHPMEVT24_OFFSET    536
+#define IOHPMEVT25_OFFSET    544
+#define IOHPMEVT26_OFFSET    552
+#define IOHPMEVT27_OFFSET    560
+#define IOHPMEVT28_OFFSET    568
+#define IOHPMEVT29_OFFSET    576
+#define IOHPMEVT30_OFFSET    584
+#define IOHPMEVT31_OFFSET    592
+#define RESERVED_OFFSET      600
+#define CUSTOM_OFFSET        682
 #define ICVEC_OFFSET         760
-#define MSI_CFG_TBL_OFFSET   768
+
+#define MSI_ADDR_0_OFFSET      768 + 0 * 16 + 0
+#define MSI_DATA_0_OFFSET      768 + 0 * 16 + 8
+#define MSI_VEC_CTRL_0_OFFSET  768 + 0 * 16 + 12
+#define MSI_ADDR_1_OFFSET      768 + 1 * 16 + 0
+#define MSI_DATA_1_OFFSET      768 + 1 * 16 + 8
+#define MSI_VEC_CTRL_1_OFFSET  768 + 1 * 16 + 12
+#define MSI_ADDR_2_OFFSET      768 + 2 * 16 + 0
+#define MSI_DATA_2_OFFSET      768 + 2 * 16 + 8
+#define MSI_VEC_CTRL_2_OFFSET  768 + 2 * 16 + 12
+#define MSI_ADDR_3_OFFSET      768 + 3 * 16 + 0
+#define MSI_DATA_3_OFFSET      768 + 3 * 16 + 8
+#define MSI_VEC_CTRL_3_OFFSET  768 + 3 * 16 + 12
+#define MSI_ADDR_4_OFFSET      768 + 4 * 16 + 0
+#define MSI_DATA_4_OFFSET      768 + 4 * 16 + 8
+#define MSI_VEC_CTRL_4_OFFSET  768 + 4 * 16 + 12
+#define MSI_ADDR_5_OFFSET      768 + 5 * 16 + 0
+#define MSI_DATA_5_OFFSET      768 + 5 * 16 + 8
+#define MSI_VEC_CTRL_5_OFFSET  768 + 5 * 16 + 12
+#define MSI_ADDR_6_OFFSET      768 + 6 * 16 + 0
+#define MSI_DATA_6_OFFSET      768 + 6 * 16 + 8
+#define MSI_VEC_CTRL_6_OFFSET  768 + 6 * 16 + 12
+#define MSI_ADDR_7_OFFSET      768 + 7 * 16 + 0
+#define MSI_DATA_7_OFFSET      768 + 7 * 16 + 8
+#define MSI_VEC_CTRL_7_OFFSET  768 + 7 * 16 + 12
+#define MSI_ADDR_8_OFFSET      768 + 8 * 16 + 0
+#define MSI_DATA_8_OFFSET      768 + 8 * 16 + 8
+#define MSI_VEC_CTRL_8_OFFSET  768 + 8 * 16 + 12
+#define MSI_ADDR_9_OFFSET      768 + 9 * 16 + 0
+#define MSI_DATA_9_OFFSET      768 + 9 * 16 + 8
+#define MSI_VEC_CTRL_9_OFFSET  768 + 9 * 16 + 12
+#define MSI_ADDR_10_OFFSET     768 + 10 * 16 + 0
+#define MSI_DATA_10_OFFSET     768 + 10 * 16 + 8
+#define MSI_VEC_CTRL_10_OFFSET 768 + 10 * 16 + 12
+#define MSI_ADDR_11_OFFSET     768 + 11 * 16 + 0
+#define MSI_DATA_11_OFFSET     768 + 11 * 16 + 8
+#define MSI_VEC_CTRL_11_OFFSET 768 + 11 * 16 + 12
+#define MSI_ADDR_12_OFFSET     768 + 12 * 16 + 0
+#define MSI_DATA_12_OFFSET     768 + 12 * 16 + 8
+#define MSI_VEC_CTRL_12_OFFSET 768 + 12 * 16 + 12
+#define MSI_ADDR_13_OFFSET     768 + 13 * 16 + 0
+#define MSI_DATA_13_OFFSET     768 + 13 * 16 + 8
+#define MSI_VEC_CTRL_13_OFFSET 768 + 13 * 16 + 12
+#define MSI_ADDR_14_OFFSET     768 + 14 * 16 + 0
+#define MSI_DATA_14_OFFSET     768 + 14 * 16 + 8
+#define MSI_VEC_CTRL_14_OFFSET 768 + 14 * 16 + 12
+#define MSI_ADDR_15_OFFSET     768 + 15 * 16 + 0
+#define MSI_DATA_15_OFFSET     768 + 15 * 16 + 8
+#define MSI_VEC_CTRL_15_OFFSET 768 + 15 * 16 + 12
 
 // capabilities fields
 #define MSI      0
@@ -498,12 +667,16 @@ typedef union {                        // |Ofst|Name            |Size|Descriptio
 #define DDT_2LVL 3
 #define DDT_3LVL 4
 
-extern iommu_regs_t g_reg_types;
 extern iommu_regs_t g_reg_file;
+extern uint8_t g_num_hpm;
+extern uint8_t g_hpmctr_bits;
+extern uint8_t g_eventID_mask;
+extern uint8_t g_num_vec_bits;
 extern uint8_t offset_to_size[4096];
-extern int reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t num_evts, 
-                uint8_t num_vec, capabilities_t capabilities, fctrl_t fctrl);
-extern uint64_t read_register(uint16_t offset, uint8_t num_bytes);
-extern void write_register(uint16_t offset, uint8_t num_bytes, uint64_t data);
+//extern int reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t eventID_mask, 
+//                uint8_t num_vec_bits, uint8_t reset_iommu_mode, 
+//                capabilities_t capabilities, fctrl_t fctrl) {
+//extern uint64_t read_register(uint16_t offset, uint8_t num_bytes);
+//extern void write_register(uint16_t offset, uint8_t num_bytes, uint64_t data);
 
 #endif //_IOMMU_REGS_H_

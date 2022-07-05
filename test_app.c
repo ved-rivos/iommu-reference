@@ -1,7 +1,11 @@
+// Copyright (c) 2022 by Rivos Inc.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+// Author: ved@rivosinc.com
+
 #include <stdio.h>
 #include <inttypes.h>
-#include "iommu_registers.h"
-#include "iommu_data_structures.h"
+#include "iommu.h"
 
 int
 main(void) {
@@ -42,7 +46,7 @@ main(void) {
     fctrl.end = 0;
     fctrl.wis = 0;
 
-    if ( reset_iommu(8, 40, 16, 4, cap, fctrl) < 0 ) {
+    if ( reset_iommu(8, 40, 0xff, 4, Off, cap, fctrl) < 0 ) {
         printf("IOMMU reset failed\n");
     }
     cap.raw = read_register(CAPABILITIES_OFFSET, 8);

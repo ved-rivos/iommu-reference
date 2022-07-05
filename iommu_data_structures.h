@@ -1,3 +1,10 @@
+// Copyright (c) 2022 by Rivos Inc.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+// Author: ved@rivosinc.com
+#ifndef __IOMMU_DATA_STRUCTURES_H__
+#define __IOMMU_DATA_STRUCTURES_H__
+
 // Translation control (`tc`) field
 typedef union {
     struct {
@@ -62,8 +69,8 @@ typedef union {
         // "Page Request" had a PASID.
         uint64_t PRPR:1;
 
-        uint64_t reserved:1;
-        uint64_t custom:1;
+        uint64_t reserved:25;
+        uint64_t custom:32;
     };
     uint64_t raw;
 } tc_t;
@@ -77,11 +84,11 @@ typedef union {
 
 // The G-stage page table format and `MODE` encoding follow the format defined by
 // the privileged specification.
-#define HGATP_Bare 0
-#define HGATP_32x4 1
-#define HGATP_39x4 8
-#define HGATP_48x4 9
-#define HGATP_57x4 10
+#define IOHGATP_Bare         0
+#define IOHGATP_Sv32x4       1
+#define IOHGATP_Sv39x4       8
+#define IOHGATP_Sv48x4       9
+#define IOHGATP_Sv57x4       10
 // Implementations are not required to support all defined mode settings for
 // `iohgatp`. The IOMMU only needs to support the modes also supported by the MMU
 // in the harts integrated into the system or a subset thereof.
@@ -215,7 +222,24 @@ typedef struct {
     uint64_t  msi_addr_pattern;
     uint64_t  reserved;
 } device_context_t;
+#define BASE_FORMAT_DC_SIZE 32
+#define EXT_FORMAT_DC_SIZE  64
 
+typedef union {
+    struct {
+        uint64_t V:1;
+        uint64_t reserved0:11;
+        uint64_t PPN:44;
+        uint64_t reserved1:8;
+    };
+    uint64_t raw;
+} ddte_t;
+
+#define IOSATP_Bare 0
+#define IOSATP_Sv32 1
+#define IOSATP_Sv39 8
+#define IOSATP_Sv48 9
+#define IOSATP_Sv57 10
 // IO SATP
 typedef union {
     struct {
@@ -269,3 +293,4 @@ typedef struct {
     pc_ta_t ta;
 } process_context_t;
 
+#endif // __IOMMU_DATA_STRUCTURES_H__
