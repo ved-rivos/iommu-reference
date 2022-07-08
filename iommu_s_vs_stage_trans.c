@@ -21,11 +21,25 @@ s_vs_stage_address_translation(
     uint64_t a, masked_upper_bits, mask;
     uint8_t is_implicit_write = 0;
     uint64_t gst_page_sz;
-    uint8_t GR, GW, GX, GPBMT;
+    uint8_t GR, GW, GX, GD, GPBMT;
+    uint8_t ioatc_status;
 
     *R = *W = *X = *G = *PBMT = *UNTRANSLATED_ONLY = 0;
+    GR = GW = GX = GD = 0;
+    GPBMT = PMA;
     *page_sz = PAGESIZE;
     *iotval2 = 0;
+
+    // Lookup IOATC to determine if there is a cached translation
+    if ( (ioatc_status = lookup_iotlb(iova, priv, is_read, is_write, is_exec, SUM, iosatp, 
+                        PSCID, iohgatp, cause, resp_pa, page_sz, R, W, X, G, PBMT)) == IOATC_FAULT )
+        goto page_fault;
+
+    // Hit in IOATC - complete translation.
+    if ( ioatc_status == IOATC_HIT )
+        return 0;
+
+    // Miss in IOATC - Walk page tables
     if ( iosatp.MODE == IOSATP_Bare ) {
         // No translation or protection.
         i = 0;
@@ -100,7 +114,7 @@ step_2:
     // table.
     is_implicit_write = ( g_reg_file.capabilities.amo == 0 ) ? 0 : 1;
     if ( g_stage_address_translation(a, 1, is_implicit_write, 0, 1,
-            iohgatp, cause, iotval2, &a, &gst_page_sz, &GR, &GW, &GX, &GPBMT) )
+            iohgatp, cause, iotval2, &a, &gst_page_sz, &GR, &GW, &GX, &GD, &GPBMT) )
         return 1;
 
     status = read_memory((a + (vpn[i] * PTESIZE)), PTESIZE, (char *)&pte.raw);
@@ -288,22 +302,20 @@ step_8:
     //    the address space identified in satp as loaded by step 0.
     if ( pte.N ) 
         pte.PPN = (pte.PPN & ~0xF) | ((iova / PAGESIZE) & 0xF);
-    
+
+    // Create a response PA based on S/VS stage translations.  This may change if
+    // a G-stage is active
+    *resp_pa = ((pte.PPN * PAGESIZE) & ~(*page_sz - 1)) | (iova & (*page_sz - 1));
+
     // The G bit designates a global mapping. Global mappings are those that exist 
     // in all address spaces.  For non-leaf PTEs, the global setting implies that 
     // all mappings in the subsequent levels of the page table are global.
-    *resp_pa = ((pte.PPN * PAGESIZE) & ~(*page_sz - 1)) | (iova & (*page_sz - 1));
-    *R = pte.R;
-    *W = pte.W;
-    *X = pte.X;
     *G = NL_G & pte.G;
-    *UNTRANSLATED_ONLY = 0;
-
 
     // Invoke G-stage page table to translate the PTE address if G-stage page
     // table is active.
     if ( g_stage_address_translation(*resp_pa, is_read, is_write, is_exec, 0,
-            iohgatp, cause, iotval2, resp_pa, &gst_page_sz, &GR, &GW, &GX, &GPBMT) )
+            iohgatp, cause, iotval2, resp_pa, &gst_page_sz, &GR, &GW, &GX, &GD, &GPBMT) )
         return 1;
 
     // The page size is smaller of VS or G stage page table size
@@ -311,14 +323,6 @@ step_8:
         *page_sz = gst_page_sz;
     }
 
-    // The translated physical address is given as follows:
-    // pa.pgoff = va.pgoff.
-    // If i > 0, then this is a superpage translation and pa.ppn[i − 1 : 0] = va.vpn[i − 1 : 0].
-    // pa.ppn[LEVELS − 1 : i] = pte.ppn[LEVELS − 1 : i]
-    *R = pte.R & GR;
-    *W = pte.W & GW;
-    *X = pte.X & GX;
-    *G = NL_G & pte.G;
     // The page-based memory types (PBMT), if Svpbmt is supported, obtained 
     // from the IOMMU address translation page tables. When two-stage address
     // translation is performed the IOMMU provides the page-based memory type
@@ -327,11 +331,27 @@ step_8:
     // If VS-stage page tables have PBMT as PMA, then G-stage PBMT is used
     // else VS-stage PBMT overrides.
     // The IO bridge resolves the final memory type
-    if ( pte.PBMT != PMA ) 
-        *PBMT = pte.PBMT;
-    else
-        *PBMT = GPBMT;
-    *UNTRANSLATED_ONLY = 0;
+    *PBMT = ( pte.PBMT != PMA ) ? pte.PBMT : GPBMT;
+
+    // The translated physical address is given as follows:
+    // pa.pgoff = va.pgoff.
+    // If i > 0, then this is a superpage translation and pa.ppn[i − 1 : 0] = va.vpn[i − 1 : 0].
+    // pa.ppn[LEVELS − 1 : i] = pte.ppn[LEVELS − 1 : i]
+    *resp_pa = ((pte.PPN * PAGESIZE) & ~(*page_sz - 1)) | (iova & (*page_sz - 1));
+    *R = pte.R & GR;
+    *W = pte.W & GW;
+    *X = pte.X & GX;
+
+    // Cache the translation in the IOATC
+    cache_iotlb(iova, 
+                ((iohgatp.MODE == IOHGATP_Bare) ? 0 : 1),                       // GV
+                ((iosatp.MODE == IOSATP_Bare) ? 0 : 1),                         // PSCV
+                iohgatp.GSCID, PSCID,                                           // GSCID, PSCID tags
+                pte.R, pte.W, pte.X, pte.U, *G, pte.D,                          // VS stage attributes
+                *PBMT, GR, GW, GX, GD,                                          // G stage attributes
+                (((*resp_pa & ~(*page_sz - 1)) | ((*page_sz/2) - 1))/PAGESIZE), // PPN
+                ((*page_sz > PAGESIZE) ? 1 : 0)                                 // S - size
+               );
     return 0;
 
 page_fault:

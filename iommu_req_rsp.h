@@ -21,89 +21,30 @@ typedef enum {
 } addr_type_t;
 #define READ      0
 #define WRITE     1
-#define WRITE_AMO 2
 typedef struct {
     addr_type_t at;
     uint64_t    iova;
     uint32_t    length;
-    uint32_t    read_write_AMO;
+    uint8_t     read_writeAMO;
     uint32_t    msi_wr_data;
 } iommu_trans_req_t;
-typedef struct {
-    uint64_t payload;
-} iommu_page_req_t;
-typedef struct {
-    uint64_t payload;
-} iommu_inv_compl_t;
-typedef enum {
-    TRANS_REQUEST    = 0,
-    INVAL_COMPLETION = 1,
-    PAGE_REQUEST     = 2
-} hb_to_iommu_cmd_t;
-// Message Code Routing r[2:0] Type Description
-// 00000100     000            Msg  Page Request Message, see § Section 10.4.1
-#define PAGE_REQ_MSG_CODE 0x04
 
 // Request to IOMMU from the host bridge
 typedef struct {
-    hb_to_iommu_cmd_t cmd;
     // Device ID input
-    uint32_t  device_id;
+    uint32_t          device_id;
     // Process ID input (e.g. PASID present)
-    uint32_t  pid_valid;
-    uint32_t  process_id;
-    uint8_t   no_write;
-    uint8_t   exec_req;
-    uint8_t   priv_req;
-    uint8_t   is_cxl_dev;
-    // Pick based on the command
-    union {
-        iommu_trans_req_t tr;
-        iommu_page_req_t  pr;
-        iommu_inv_compl_t ic;
-    };
+    uint32_t          pid_valid;
+    uint32_t          process_id;
+    uint8_t           no_write;
+    uint8_t           exec_req;
+    uint8_t           priv_req;
+    uint8_t           is_cxl_dev;
+    // Translation request
+    iommu_trans_req_t tr;
 } hb_to_iommu_req_t;
 
-// Translation response from iommu to host bridge
-typedef struct {
-    uint64_t PPN;
-    uint8_t S;
-    uint8_t N;
-    uint8_t CXL_IO;
-    uint8_t Global;
-    uint8_t Priv;
-    uint8_t U;
-    uint8_t R;
-    uint8_t W;
-    uint8_t Exe;
-    uint8_t AMA;
-    uint8_t PBMT;
-    uint8_t is_msi;
-    uint8_t is_mrif_wr;
-    uint8_t mrif_nid;
-} iommu_trans_rsp_t;
-
-typedef struct {
-    uint32_t  device_id;
-    uint32_t  pid_valid;
-    uint32_t  process_id;
-    uint8_t   no_write;
-    uint8_t   exec_req;
-    uint8_t   priv_req;
-    uint64_t  payload;
-} iommu_msg_req_t;
-
-typedef enum {
-    // Completion to a translation request
-    TRANS_COMPLETION = 0,
-    
-    // PCIe Invalidation request
-    INVAL_REQUEST = 1,
-
-    // PCIe Page Group response
-    PAGE_GROUP_RESPONSE = 2,
-} iommu_to_hb_cmd_t;
-
+// Translation completion status
 typedef enum {
     // This Completion Status has a nominal meaning of “success”.
     SUCCESS = 0,
@@ -128,35 +69,51 @@ typedef enum {
     // Completer.
     COMPLETER_ABORT = 4
 } status_t;
+
+// Translation response from iommu to host bridge
 typedef struct {
-    uint32_t  rid;
-    uint8_t   pv;
-    uint32_t  pid;
-    uint8_t   dsv;
-    uint8_t   dseg;
-    uint64_t  payload;
-} iommu_prgr_t;
-typedef struct {
-    uint32_t  rid;
-    uint8_t   pv;
-    uint32_t  pid;
-    uint8_t   dsv;
-    uint8_t   dseg;
-    uint64_t  payload;
-} iommu_inv_req_t;
+    uint64_t PPN;
+    uint8_t S;
+    uint8_t N;
+    uint8_t CXL_IO;
+    uint8_t Global;
+    uint8_t Priv;
+    uint8_t U;
+    uint8_t R;
+    uint8_t W;
+    uint8_t Exe;
+    uint8_t AMA;
+    uint8_t PBMT;
+    uint8_t is_msi;
+    uint8_t is_mrif_wr;
+    uint8_t mrif_nid;
+} iommu_trans_rsp_t;
 
 // IOMMU response to requests from the IO bridge
+typedef struct {
+    status_t          status;
+    iommu_trans_rsp_t trsp;
+} iommu_to_hb_rsp_t;
+
 // IOMMU generated notifications (invalidation requests and
 // page group responses)
+// IOMMU response to requests from the IO bridge
+// Message Code Routing r[2:0] Type  Description
+// 00000001     010            MsgD  Invalidate Request Message, see § Section 10.3.1
+// 00000010     010            Msg   Invalidate Completion Message, see § Section 10.3.2
+// 00000100     000            Msg   Page Request Message, see § Section 10.4.1
+// 00000101     010            Msg   PRG Response Message, see § Section 10.4.2
+#define INVAL_REQ_MSG_CODE   0x01
+#define INVAL_COMPL_MSG_CODE 0x02
+#define PAGE_REQ_MSG_CODE    0x04
+#define PRGR_MSG_CODE        0x05
 typedef struct {
-    iommu_to_hb_cmd_t cmd;
-    status_t  status;
-    // Pick based on the command
-    union {
-        iommu_trans_rsp_t trsp;
-        iommu_prgr_t      prgr;
-        iommu_inv_req_t   invreq;
-    };
-} iommu_to_hb_rsp_msg_t;
-
+    uint8_t   MSGCODE;
+    uint32_t  RID;
+    uint8_t   PV;
+    uint32_t  PID;
+    uint8_t   DSV;
+    uint8_t   DSEG;
+    uint64_t  PAYLOAD;
+} ats_msg_t;
 #endif // __IOMMU_REQ_RSP_H__

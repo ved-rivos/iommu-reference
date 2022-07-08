@@ -9,7 +9,7 @@ g_stage_address_translation(
     uint64_t gpa, uint8_t is_read, uint8_t is_write, uint8_t is_exec, uint8_t implicit,
     iohgatp_t iohgatp, uint32_t *cause, uint64_t *iotval2, 
     uint64_t *resp_pa, uint64_t *gst_page_sz,
-    uint8_t *GR, uint8_t *GW, uint8_t *GX, uint8_t *GPBMT) {
+    uint8_t *GR, uint8_t *GW, uint8_t *GX, uint8_t *GD, uint8_t *GPBMT) {
 
     uint16_t vpn[5];
     uint16_t ppn[5];
@@ -73,14 +73,21 @@ g_stage_address_translation(
     if ( gpa_upper_bits != 0 ) goto guest_page_fault;
 
     i = LEVELS - 1;
+
+    // The root page table as determined by `iohgatp.PPN` is 16 KiB and must be aligned
+    // to a 16-KiB boundary.  If the root page table is not aligned to 16 KiB as 
+    // required, then all entries in that G-stage root page table appear to an IOMMU as
+    // `UNSPECIFIED` and any address an IOMMU may compute and use for accessing an
+    // entry in the root page table is also `UNSPECIFIED`.
     a = iohgatp.PPN * PAGESIZE;
+
 step_2:
     // 2. Let gpte be the value of the PTE at address a+gpa.vpn[i]×PTESIZE. (For 
     //    Sv32x4 PTESIZE=4. and for all other modes PTESIZE=8). If accessing pte
     //    violates a PMA or PMP check, raise an access-fault exception 
     //    corresponding to the original access type.
     gpte.raw = 0;
-    status = read_memory((a + (vpn[i] * PTESIZE)), PTESIZE, (char *)&gpte.raw);
+    status = read_memory((a | (vpn[i] * PTESIZE)), PTESIZE, (char *)&gpte.raw);
     if ( status != 0 ) goto access_fault;
 
     // 3. If pte.v = 0, or if pte.r = 0 and pte.w = 1, or if any bits or 
@@ -209,6 +216,7 @@ step_8:
     *GR = gpte.R;
     *GW = gpte.W;
     *GX = gpte.X;
+    *GD = gpte.D;
     *GPBMT = gpte.PBMT;
     return 0;
 

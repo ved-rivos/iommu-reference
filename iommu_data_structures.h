@@ -288,6 +288,16 @@ typedef union {
     uint64_t raw;
 } pc_fsc_t;
 
+typedef union {
+    struct {
+        uint64_t V:1;
+        uint64_t reserved0:11;
+        uint64_t PPN:44;
+        uint64_t reserved1:8;
+    };
+    uint64_t raw;
+} pdte_t;
+
 typedef struct {
     pc_fsc_t   fsc;
     pc_ta_t ta;
