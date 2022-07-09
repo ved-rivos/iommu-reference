@@ -208,14 +208,18 @@ int reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t num_evts,
 
     offset_to_size[CAPABILITIES_OFFSET] = 8;
     offset_to_size[FCTRL_OFFSET] = 4;
-    offset_to_size[DDTP_OFFSET] = 8;
+    offset_to_size[DDTP_OFFSET]  = 8;
+    offset_to_size[DDTP_OFFSET + 4] = 4;
     offset_to_size[CQB_OFFSET] = 8;
+    offset_to_size[CQB_OFFSET + 4] = 4;
     offset_to_size[CQH_OFFSET] = 4;
     offset_to_size[CQT_OFFSET] = 4;
     offset_to_size[FQB_OFFSET] = 8;
+    offset_to_size[FQB_OFFSET + 4] = 4;
     offset_to_size[FQH_OFFSET] = 4;
     offset_to_size[FQT_OFFSET] = 4;
     offset_to_size[PQB_OFFSET] = 8;
+    offset_to_size[PQB_OFFSET + 4] = 4;
     offset_to_size[PQH_OFFSET] = 4;
     offset_to_size[PQT_OFFSET] = 4;
     offset_to_size[CQCSR_OFFSET] = 4;
@@ -227,18 +231,18 @@ int reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t num_evts,
     offset_to_size[IOHPMCYCLES_OFFSET] = 4;
     for ( i = IOHPMCTR1_OFFSET; i < IOHPMCTR1_OFFSET + (8 * 31); i += 8 ) {
         offset_to_size[i] = 8;
+        offset_to_size[i + 4] = 4;
     }
     for ( i = IOHPMEVT1_OFFSET; i < IOHPMEVT1_OFFSET + (8 * 31); i += 8 ) {
         offset_to_size[i] = 8;
-    }
-    for ( i = 600; i < ICVEC_OFFSET; i++ ) {
-        offset_to_size[i] = 1;
+        offset_to_size[i + 4] = 4;
     }
     offset_to_size[ICVEC_OFFSET] = 4;
     for ( i = MSI_CFG_TBL_OFFSET; i < MSI_CFG_TBL_OFFSET + (16 * 16); i += 16 ) {
-        offset_to_size[i] = 8;
-        offset_to_size[i+8] = 4;
-        offset_to_size[i+12] = 4;
+        offset_to_size[i]     = 8;
+        offset_to_size[i + 4] = 4;
+        offset_to_size[i+8]   = 4;
+        offset_to_size[i+12]  = 4;
     }
     return 0;
 }

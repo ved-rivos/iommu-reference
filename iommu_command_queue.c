@@ -24,7 +24,6 @@ process_commands(
     // memory-mapped IOMMU controlled register called command-queue head (cqh). The
     // cqh is an index into the command queue that IOMMU should process next. 
     // 
-    // Subsequent to reading each command the IOMMU advances the cqh by 1. 
 
     // If command-queue access leads to a memory fault then the 
     // command-queue-memory-fault cqmf bit is set to 1 
@@ -151,6 +150,13 @@ process_commands(
             if ( reserved ) goto command_illegal;
             switch ( func3 ) {
                 case INVAL:
+                    // Allocate a ITAG for the request
+                    if ( allocate_itag(DSV, DSEG, RID, &itag) ) { 
+                        // No ITAG available, CQ does not move till some responses
+                        // received and free up pending ITAGs. Or a timeout occurs
+                        return;
+                    }
+                    // ITAG allocated successfully, send invalidate request
                     do_ats_msg(INVAL_REQ_MSG_CODE, DSV, DSEG, RID, PV, PID, PAYLOAD);
                     break;
                 case PRGR:
@@ -160,6 +166,12 @@ process_commands(
             }
         default: goto command_illegal;
     }
+    // The head of the command-queue resides in a read-only memory-mapped IOMMU
+    // controlled register called command-queue head (`cqh`). The `cqh` is an index
+    // into the command queue that IOMMU should process next. Subsequent to reading
+    // each command the IOMMU may advance the `cqh` by 1.
+    g_reg_file.cqh.index =  
+        (g_reg_file.cqh.index + 1) & ((1 << (g_reg_file.cqb.log2szm1 + 1)) - 1);
     return;
 
 command_illegal:

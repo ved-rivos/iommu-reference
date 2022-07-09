@@ -69,9 +69,8 @@ typedef union {
                                    //                      register.
                                    // !3      ! 0        ! Reserved for standard use
         uint64_t pmon    : 1;      // IOMMU implements a performance-monitoring unit
-        uint64_t ras     : 1;      // IOMMU implements the RISC-V RAS regsiters
         uint64_t pas     : 6;      // Physical Address Size (value between 32 and 56)
-        uint64_t rsvd3   : 19;     // Reserved for standard use
+        uint64_t rsvd3   : 11;     // Reserved for standard use
         uint64_t custom  : 16;     // _Reserved for custom use_
     };
     uint64_t raw;
@@ -513,7 +512,10 @@ typedef union {                        // |Ofst|Name            |Size|Descriptio
         msi_cfg_tbl_t  msi_cfg_tbl[16];// |768 |`msi_cfg_tbl`   |256 |MSI Configuration Table
         uint8_t        reserved1[3072];// |1024|Reserved        |3072|Reserved for future use (`WPRI`)
     };
-    uint8_t        regs[4096];
+    uint8_t         regs1[4096];
+    uint16_t        regs2[2048];
+    uint32_t        regs4[1024];
+    uint64_t        regs8[512];
 } iommu_regs_t;
 
 // Offset to field

@@ -23,7 +23,7 @@ int is_access_valid(
     if ( (num_bytes !=4 && num_bytes != 8) ||        // only 4B & 8B registers in IOMMU
          (offset >= 4096) ||                         // Offset must be <= 4095
          ((offset & (num_bytes - 1)) != 0) ||        // Offset must be aligned to size
-         (g_offset_to_size[offset] != num_bytes) ) {   // Acesss cannot span two registers
+         (g_offset_to_size[offset] <= num_bytes) ) { // Acesss cannot span two registers
         return 0;
     }
     return 1;
@@ -38,8 +38,8 @@ read_register(
     }
 
     // If access is valid then return data from the register file
-    return ( num_bytes == 4 ) ? *((uint32_t *)&g_reg_file.regs[offset]) :
-                                *((uint64_t *)&g_reg_file.regs[offset]);
+    return ( num_bytes == 4 ) ? g_reg_file.regs4[offset/4] :
+                                g_reg_file.regs8[offset/8];
 }
 void 
 write_register(
@@ -65,6 +65,29 @@ write_register(
     iohpmevt_t iohpmevt_temp;
     msi_addr_t msi_addr_temp;
     msi_vec_ctrl_t msi_vec_ctrl_temp;
+    uint64_t pa_mask  = ((1 << (g_reg_file.capabilities.pas)) - 1);
+    uint64_t ppn_mask = pa_mask >> 12;
+
+    // If access is not valid then discard the write
+    if ( !is_access_valid(offset, num_bytes) ) {
+        return;
+    }
+
+    // If its a 4B write to a 8B register then merge the new 
+    // write data with current data in register file
+    if ( (g_offset_to_size[offset] == 8) && (num_bytes == 4) ) {
+        // read the old 8B  
+        data8 = g_reg_file.regs8[(offset & ~0x7)/8];
+        if ( (offset & 0x7) != 0 ) {
+            // write to high half - replace high half
+            data8 = ((data8) & 0x00000000FFFFFFFF) | ((uint64_t)data4 << 32);
+        } else {
+            // write to low half - replace low half
+            data8 = ((data8) & 0xFFFFFFFF00000000) | (data4);
+        }
+        // Align offset to 8B boundary
+        offset = offset & ~0x7;
+    }
 
     fctrl_temp.raw = data4;
     ddtp_temp.raw = data8;
@@ -86,14 +109,7 @@ write_register(
     icvec_temp.raw = data4;
     msi_addr_temp.raw = data8;
     msi_vec_ctrl_temp.raw = data4;
-
-    uint64_t pa_mask  = ((1 << (g_reg_file.capabilities.pas)) - 1);
-    uint64_t ppn_mask = pa_mask >> 12;
      
-    // If access is not valid then discard the write
-    if ( !is_access_valid(offset, num_bytes) ) {
-        return;
-    }
     switch (offset) {
         case CAPABILITIES_OFFSET:
             // This register is read only

@@ -22,11 +22,13 @@ msi_address_translation(
     uint32_t *cause, uint64_t *resp_pa, uint8_t *R, uint8_t *W, uint8_t *U, 
     uint8_t *is_msi, uint8_t *is_unsup, uint8_t *is_mrif_wr, uint32_t *mrif_nid) {
 
-    uint64_t A, m, I, mrif_dw_addr;
+    uint64_t A, m, I, mrif_dw_addr, page_sz;
     uint32_t mrif_dw;
-    uint8_t status;
+    uint8_t status, GV, ioatc_status;
+    uint16_t GSCID;
     msipte_t msipte;
     uint32_t D;
+    uint8_t X, G, PBMT;
 
     *is_msi = *is_mrif_wr = *is_unsup = *R = *W = *U = 0;
 
@@ -65,6 +67,18 @@ msi_address_translation(
         *is_unsup = 1;
         return 0;
     }
+
+    // Lookup IOATC to determine if there is a cached translation
+    // Since only G stage permissions may be active the S/VS stage permissions must 
+    // never fault. G-stage faults cause invalidate and return miss. So we cannot 
+    // get a ATC fault on this lookup.
+    GV = (DC->iohgatp.MODE == IOHGATP_Bare) ? 0 : 1;
+    GSCID = (DC->iohgatp.MODE == IOHGATP_Bare) ? 0 : DC->iohgatp.GSCID;
+    if ( (ioatc_status = lookup_ioatc_iotlb(iova, U_MODE, 1, 1, 0, 0, 0, 0, GV, GSCID, cause,
+                                            resp_pa, &page_sz, R, W, &X, &G, &PBMT)) == IOATC_HIT )
+        return 0;
+
+    // Miss in IOATC
     // 7. Let `m` be `(DC.msiptp.PPN x 2^12^)`.
     m = DC->msiptp.PPN * PAGESIZE;
 
@@ -79,7 +93,7 @@ msi_address_translation(
     // 9. If `msipte` access detects a data corruption (a.k.a. poisoned data), then
     //    stop and report "MSI PT data corruption" (cause = 270). This fault is reported
     //    if the IOMMU supports RAS (i.e., capabilities.RAS == 1)
-    if ( (status & DATA_CORRUPTION) && (g_reg_file.capabilities.ras == 1) ) {
+    if ( (status & DATA_CORRUPTION) ) {
         *cause = 270;     // MSI PTE load access fault
         return 1;
     }
@@ -110,8 +124,18 @@ msi_address_translation(
         *resp_pa = (msipte.write_through.PPN * PAGESIZE) | (A * 0xFFF);
         *R = 1;
         *W = 1;
-        *U = 0;
-        return 0;
+        *U = 1;
+        // Cache the translation in the IOATC
+        cache_iotlb(iova, 
+                    GV,                          // GV
+                    0,                           // PSCV
+                    GSCID, 0,                    // GSCID, PSCID tags
+                    1, 1, 1, 1, 1, 1, PMA,       // VS stage attributes - R=W=X=U=G=D1, PBMT=PMA
+                    1, 1, 0, 1,                  // G stage attributes - G$=GW=1, GX=0, GD=1
+                    msipte.write_through.PPN,    // PPN
+                    0                            // S - size
+                   );
+                   return 0;
     }
     //14. If `msipte.W == 0` the PTE is in MRIF mode and the translation process
     //    is as follows:
@@ -185,7 +209,7 @@ msi_address_translation(
     }
     //    i. If the MRIF access detects a data corruption (a.k.a poisoned data), then
     //       stop and report "MSI MRIF data corruption" (cause = 271).
-    if ( (status & DATA_CORRUPTION) && (g_reg_file.capabilities.ras == 1) ) {
+    if ( (status & DATA_CORRUPTION) ) {
         *cause = 271;     // MSI MRIF data corruption
         return 1;
     }

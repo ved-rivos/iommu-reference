@@ -86,7 +86,7 @@ lookup_pdt(
 }
 // Cache a translation in the IOATC
 void
-cache_iotlb(
+cache_ioatc_iotlb(
     uint64_t addr, uint8_t  GV, uint8_t  PSCV, uint32_t GSCID, uint32_t PSCID,
     uint8_t  VS_R, uint8_t  VS_W, uint8_t  VS_X, uint8_t U, uint8_t  G, uint8_t VS_D, uint8_t  PBMT,
     uint8_t  G_R, uint8_t  G_W, uint8_t  G_X, uint8_t G_D,
@@ -125,19 +125,15 @@ cache_iotlb(
 
 // Lookup a translation in the IOATC
 uint8_t
-lookup_iotlb(
+lookup_ioatc_iotlb(
     uint64_t iova,
     uint8_t priv, uint8_t is_read, uint8_t is_write, uint8_t is_exec,
-    uint8_t SUM, iosatp_t iosatp, uint32_t PSCID, iohgatp_t iohgatp, 
+    uint8_t SUM, uint8_t PSCV, uint32_t PSCID, uint8_t GV, uint16_t GSCID, 
     uint32_t *cause, uint64_t *resp_pa, uint64_t *page_sz,
     uint8_t *R, uint8_t *W, uint8_t *X, uint8_t *G, uint8_t *PBMT) {
 
-    uint8_t i, hit, GV, PSCV; 
-    uint16_t GSCID;
+    uint8_t i, hit;
 
-    GV = (iohgatp.MODE == IOHGATP_Bare) ? 0 : 1;
-    PSCV = (iosatp.MODE == IOSATP_Bare) ? 0 : 1;
-    GSCID = iohgatp.GSCID;
     hit = 0xFF;
     for ( i = 0; i < 1; i++ ) {
         if ( tlb[i].valid == 1 && 

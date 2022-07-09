@@ -27,8 +27,8 @@ g_stage_address_translation(
         gpte.PPN = gpa / PAGESIZE;
         gpte.D = gpte.A = gpte.G = gpte.U = gpte.X = gpte.W = gpte.R = gpte.V = 1;
         gpte.PBMT = PMA;
-        // Indicate G-stage page size is all of memory
-        *gst_page_sz = 0xFFFFFFFFFFFFFFFF;
+        // Indicate G-stage page size as largest possible page size
+        *gst_page_sz = (uint64_t)512 * (uint64_t)512 * (uint64_t)512 * (uint64_t)512 * PAGESIZE;
         goto step_8;
     }
     // 1. Let a be satp.ppn × PAGESIZE, and let i = LEVELS − 1. PAGESIZE is 2^12. (For Sv32, 

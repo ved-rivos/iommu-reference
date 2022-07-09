@@ -18,11 +18,12 @@ s_vs_stage_address_translation(
     pte_t pte;
     uint8_t NL_G = 1;
     uint8_t i, PTESIZE, LEVELS, status, do_page_fault;
-    uint64_t a, masked_upper_bits, mask;
+    uint64_t a, masked_upper_bits, mask, napot_ppn;
     uint8_t is_implicit_write = 0;
     uint64_t gst_page_sz;
     uint8_t GR, GW, GX, GD, GPBMT;
-    uint8_t ioatc_status;
+    uint8_t ioatc_status, GV, PSCV;
+    uint16_t GSCID;
 
     *R = *W = *X = *G = *PBMT = *UNTRANSLATED_ONLY = 0;
     GR = GW = GX = GD = 0;
@@ -31,8 +32,11 @@ s_vs_stage_address_translation(
     *iotval2 = 0;
 
     // Lookup IOATC to determine if there is a cached translation
-    if ( (ioatc_status = lookup_iotlb(iova, priv, is_read, is_write, is_exec, SUM, iosatp, 
-                        PSCID, iohgatp, cause, resp_pa, page_sz, R, W, X, G, PBMT)) == IOATC_FAULT )
+    PSCV = (iosatp.MODE == IOSATP_Bare) ? 0 : 1;
+    GV = (iohgatp.MODE == IOHGATP_Bare) ? 0 : 1;
+    GSCID = iohgatp.GSCID;
+    if ( (ioatc_status = lookup_ioatc_iotlb(iova, priv, is_read, is_write, is_exec, SUM, PSCV, 
+                        PSCID, GV, GSCID, cause, resp_pa, page_sz, R, W, X, G, PBMT)) == IOATC_FAULT )
         goto page_fault;
 
     // Hit in IOATC - complete translation.
@@ -303,14 +307,20 @@ step_8:
     if ( pte.N ) 
         pte.PPN = (pte.PPN & ~0xF) | ((iova / PAGESIZE) & 0xF);
 
-    // Create a response PA based on S/VS stage translations.  This may change if
-    // a G-stage is active
-    *resp_pa = ((pte.PPN * PAGESIZE) & ~(*page_sz - 1)) | (iova & (*page_sz - 1));
-
     // The G bit designates a global mapping. Global mappings are those that exist 
     // in all address spaces.  For non-leaf PTEs, the global setting implies that 
     // all mappings in the subsequent levels of the page table are global.
     *G = NL_G & pte.G;
+
+    // The page-based memory types (PBMT), if Svpbmt is supported, obtained 
+    // from the IOMMU address translation page tables.
+    *PBMT = pte.PBMT;
+
+    // The translated physical address is given as follows:
+    // pa.pgoff = va.pgoff.
+    // If i > 0, then this is a superpage translation and pa.ppn[i − 1 : 0] = va.vpn[i − 1 : 0].
+    // pa.ppn[LEVELS − 1 : i] = pte.ppn[LEVELS − 1 : i]
+    *resp_pa = ((pte.PPN * PAGESIZE) & ~(*page_sz - 1)) | (iova & (*page_sz - 1));
 
     // Invoke G-stage page table to translate the PTE address if G-stage page
     // table is active.
@@ -331,25 +341,24 @@ step_8:
     // If VS-stage page tables have PBMT as PMA, then G-stage PBMT is used
     // else VS-stage PBMT overrides.
     // The IO bridge resolves the final memory type
-    *PBMT = ( pte.PBMT != PMA ) ? pte.PBMT : GPBMT;
+    *PBMT = ( *PBMT != PMA ) ? *PBMT : GPBMT;
 
-    // The translated physical address is given as follows:
-    // pa.pgoff = va.pgoff.
-    // If i > 0, then this is a superpage translation and pa.ppn[i − 1 : 0] = va.vpn[i − 1 : 0].
-    // pa.ppn[LEVELS − 1 : i] = pte.ppn[LEVELS − 1 : i]
-    *resp_pa = ((pte.PPN * PAGESIZE) & ~(*page_sz - 1)) | (iova & (*page_sz - 1));
+    // Updated resp PA if needed based on the resolved S/VS and G-stage page size
+    *resp_pa = (*resp_pa & ~(*page_sz - 1)) | (iova & (*page_sz - 1));
     *R = pte.R & GR;
     *W = pte.W & GW;
     *X = pte.X & GX;
 
     // Cache the translation in the IOATC
+    // In the IOTLB the PPN is stored in the NAPOT format
+    napot_ppn = (((*resp_pa & ~(*page_sz - 1)) | ((*page_sz/2) - 1))/PAGESIZE);
     cache_iotlb(iova, 
                 ((iohgatp.MODE == IOHGATP_Bare) ? 0 : 1),                       // GV
                 ((iosatp.MODE == IOSATP_Bare) ? 0 : 1),                         // PSCV
                 iohgatp.GSCID, PSCID,                                           // GSCID, PSCID tags
                 pte.R, pte.W, pte.X, pte.U, *G, pte.D,                          // VS stage attributes
                 *PBMT, GR, GW, GX, GD,                                          // G stage attributes
-                (((*resp_pa & ~(*page_sz - 1)) | ((*page_sz/2) - 1))/PAGESIZE), // PPN
+                napot_ppn,                                                      // PPN
                 ((*page_sz > PAGESIZE) ? 1 : 0)                                 // S - size
                );
     return 0;

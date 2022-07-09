@@ -112,7 +112,7 @@ step_2:
     // 4. If `ddte` access detects a data corruption (a.k.a. poisoned data), then
     //    stop and report "DDT data corruption" (cause = 268). This fault is detected
     //    if the IOMMU supports the RAS capability (`capabilities.RAS == 1`).
-    if ( (status & DATA_CORRUPTION) && (g_reg_file.capabilities.ras == 1) ) {
+    if ( (status & DATA_CORRUPTION) ) {
         *cause = 268;     // DDT data corruption
         return 1;
     }
