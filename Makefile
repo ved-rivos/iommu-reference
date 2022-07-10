@@ -1,4 +1,4 @@
-SUBDIRS = lib test
+SUBDIRS = libiommu test
 all:
 	@for i in $(SUBDIRS); do \
 	    echo "Building $$i";\
