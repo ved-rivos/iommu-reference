@@ -16,11 +16,7 @@ report_fault(uint16_t cause, uint64_t iotval, uint64_t iotval2, uint8_t TTYP, ui
     uint8_t status;
 
     // The fault-queue enable bit enables the fault-queue when set to 1. 
-    // The fault-queue is active if fqon reads 1. IOMMU behavior on
-    // changing fqb when busy is 1 or fqon is 1 UNSPECIFIED. The
-    // recommended sequence to change fqb is to first disable the fault
-    // queue by clearing fqen and waiting for both busy and fqon to be 0
-    // before changing fqb
+    // The fault-queue is active if fqon reads 1. 
     if ( g_reg_file.fqcsr.fqon == 0 || g_reg_file.fqcsr.fqen == 0 )
         return;
 
@@ -142,7 +138,7 @@ report_fault(uint16_t cause, uint64_t iotval, uint64_t iotval2, uint8_t TTYP, ui
         g_reg_file.fqcsr.fqmf = 1;
     } else {
         fqt = (fqt + 1) & ((1 << (g_reg_file.fqb.log2szm1 + 1)) - 1);
-        g_reg_file.fqh.index = fqt;
+        g_reg_file.fqt.index = fqt;
     }
     generate_interrupt(FAULT_QUEUE);
     return;

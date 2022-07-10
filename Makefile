@@ -2,7 +2,7 @@ CFLAGS := -fPIC -O0 -g -Wall -Werror
 CC := gcc
 VERSION := 0
 NAME := iommu
-SRCS = iommu_reg.c iommu_translate.c iommu_faults.c iommu_interrupt.c iommu_s_vs_stage_trans.c iommu_g_stage_trans.c iommu_msi_trans.c iommu_device_context.c iommu_command_queue.c iommu_utils.c iommu_atc.c iommu_process_context.c
+SRCS = iommu_reg.c iommu_translate.c iommu_faults.c iommu_interrupt.c iommu_s_vs_stage_trans.c iommu_g_stage_trans.c iommu_msi_trans.c iommu_device_context.c iommu_command_queue.c iommu_utils.c iommu_atc.c iommu_process_context.c iommu_ats.c
 SRCS_APP = test_app.c
 OBJS = $(SRCS:.c=.o)
 
@@ -16,4 +16,4 @@ iommu: $(OBJ_APP)
 	$(CC) -o $@ $^ $(CFLAGS) lib$(NAME).so.$(VERSION)
 
 clean:
-	$(RM) *.o *.so*
+	$(RM) *.o *.so* iommu tags log

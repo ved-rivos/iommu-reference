@@ -16,5 +16,7 @@ extern int reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t eventID_ma
                        capabilities_t capabilities, fctrl_t fctrl);
 extern void iommu_translate_iova(hb_to_iommu_req_t req, iommu_to_hb_rsp_t *rsp_msg);
 extern void iommu_handle_message(hb_to_iommu_req_t req, iommu_to_hb_rsp_t *rsp_msg);
-extern void send_msg_iommu_to_hb(ats_msg_t *msg);
+
+extern void iommu_to_hb_do_global_observability_sync(uint8_t PR, uint8_t PW);
+extern void send_msg_iommu_to_hb(ats_msg_t *prgr);
 #endif // __IOMMU_REF_API_H__

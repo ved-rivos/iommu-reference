@@ -352,7 +352,7 @@ step_8:
     // Cache the translation in the IOATC
     // In the IOTLB the PPN is stored in the NAPOT format
     napot_ppn = (((*resp_pa & ~(*page_sz - 1)) | ((*page_sz/2) - 1))/PAGESIZE);
-    cache_iotlb(iova, 
+    cache_ioatc_iotlb(iova, 
                 ((iohgatp.MODE == IOHGATP_Bare) ? 0 : 1),                       // GV
                 ((iosatp.MODE == IOSATP_Bare) ? 0 : 1),                         // PSCV
                 iohgatp.GSCID, PSCID,                                           // GSCID, PSCID tags

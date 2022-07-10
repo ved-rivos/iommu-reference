@@ -58,7 +58,7 @@ locate_process_context(
     // using its process_id is as follows:
 
     // Determine if there is a cached device context
-    if ( lookup_pdt(device_id, process_id, PC) == IOATC_HIT )
+    if ( lookup_ioatc_pc(device_id, process_id, PC) == IOATC_HIT )
         return 0;
 
     // 1. Let a be pdtp.PPN x 2^12 and let i = LEVELS - 1. When pdtp.MODE 
@@ -162,7 +162,7 @@ step_9:
         return 1;
     }
     //13. The Process-context has been successfully located.
-    cache_pdt(device_id, process_id, PC);
+    cache_ioatc_pc(device_id, process_id, PC);
     return 0;
 }
 

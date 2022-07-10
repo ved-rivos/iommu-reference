@@ -16,12 +16,10 @@
 #include "iommu_translate.h"
 #include "iommu_utils.h"
 #include "iommu_interrupt.h"
-#include "iommu_ref_api.h"
 #include "iommu_command_queue.h"
+#include "iommu_ats.h"
 #include "iommu_atc.h"
+#include "iommu_ref_api.h"
 
-extern void 
-generate_interrupt(
-    uint8_t unit);
 
 #endif

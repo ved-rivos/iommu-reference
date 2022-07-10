@@ -9,7 +9,7 @@ tlb_t       tlb[2];
 
 // Cache a device context
 void
-cache_ddt(
+cache_ioatc_dc(
     uint32_t device_id, device_context_t *DC) {
     uint8_t i, replace = 0;
     
@@ -29,7 +29,7 @@ cache_ddt(
 
 // Lookup IOATC for a device context
 uint8_t
-lookup_ddt(
+lookup_ioatc_dc(
     uint32_t device_id, device_context_t *DC) {
     uint8_t i;
     for ( i = 0; i < 1; i++ ) {
@@ -47,7 +47,7 @@ lookup_ddt(
 }
 // Cache a process context
 void
-cache_pdt(
+cache_ioatc_pc(
     uint32_t device_id, uint32_t process_id, process_context_t *PC) {
     uint8_t i, replace = 0;
     
@@ -66,7 +66,7 @@ cache_pdt(
 }
 // Lookup IOATC for a process context
 uint8_t
-lookup_pdt(
+lookup_ioatc_pc(
     uint32_t device_id, uint32_t process_id, process_context_t *PC) {
     uint8_t i;
     for ( i = 0; i < 1; i++ ) {

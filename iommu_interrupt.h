@@ -11,4 +11,6 @@
 #define PAGE_QUEUE    3
 
 #define MSI_VEC_CTRL_MASK_BIT 1
+
+extern void generate_interrupt(uint8_t unit);
 #endif // __IOMMU_INTERRUPT_H__

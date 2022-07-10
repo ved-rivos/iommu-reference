@@ -20,10 +20,10 @@ int is_access_valid(
     // The IOMMU behavior for register accesses where the 
     // address is not aligned to the size of the access or
     // if the access spans multiple registers is undefined
-    if ( (num_bytes !=4 && num_bytes != 8) ||        // only 4B & 8B registers in IOMMU
+    if ( (num_bytes != 4 && num_bytes != 8) ||       // only 4B & 8B registers in IOMMU
          (offset >= 4096) ||                         // Offset must be <= 4095
          ((offset & (num_bytes - 1)) != 0) ||        // Offset must be aligned to size
-         (g_offset_to_size[offset] <= num_bytes) ) { // Acesss cannot span two registers
+         (g_offset_to_size[offset] < num_bytes) ) { // Acesss cannot span two registers
         return 0;
     }
     return 1;
@@ -115,10 +115,39 @@ write_register(
             // This register is read only
             return;
         case FCTRL_OFFSET:
+            // This register must be readable in any 
+            // implementation. An implementation may allow one or more
+            // fields in the register to be writable to support enabling 
+            // or disabling the feature controlled by that field.
+            // If software enables or disables a feature when 
+            // the IOMMU is not OFF (i.e. ddtp.iommu_mode == Off)
+            // then the IOMMU behavior is UNSPECIFIED.
+            // If software enables or disables a feature when the 
+            // IOMMU in-memory queues are enabled (i.e.
+            // cqcsr.cqon/cqen == 1, fqcsr.fqon/cqen == 1, or 
+            // pqcsr.pqon/pqen == 1) then the IOMMU
+            // behavior is UNSPECIFIED.
             // FCTRL is writeable if IOMMU is bi-endian
             // or supports both wired and MSI interrupts
             // retain default values for the field if not
             // writeable
+            if ( (g_reg_file.capabilities.end != BOTH_END) &&
+                 (g_reg_file.capabilities.igs != IGS_BOTH) ) {
+                // Register is not writeable
+                break;
+            }
+            // Register is writeable
+            if ( (g_reg_file.ddtp.iommu_mode != Off) ||
+                 (g_reg_file.cqcsr.cqen == 1) ||
+                 (g_reg_file.cqcsr.cqon == 1) ||
+                 (g_reg_file.fqcsr.fqen == 1) ||
+                 (g_reg_file.fqcsr.fqon == 1) ||
+                 (g_reg_file.pqcsr.pqen == 1) ||
+                 (g_reg_file.pqcsr.pqon == 1) ) {
+                // The UNSPECIFIED behavior in reference model
+                // is to drop the write
+                break;
+            }
             if ( (g_reg_file.capabilities.end == BOTH_END) )
                 g_reg_file.fctrl.end = fctrl_temp.end;
             if ( (g_reg_file.capabilities.igs == IGS_BOTH) )
@@ -725,10 +754,6 @@ reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t eventID_mask,
     g_num_hpm = num_hpm;
     g_hpmctr_bits = hpmctr_bits;
 
-    // Initialize the reset default capabilities and feature
-    // control.
-    g_reg_file.capabilities = capabilities;
-    g_reg_file.fctrl = fctrl;
 
     // Initialize registers that have resets to 0
     // The reset default value is 0 for the following registers. 
@@ -742,6 +767,11 @@ reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t eventID_mask,
     // interface to setup random values. By default all registers are
     // cleared to 0
     memset(&g_reg_file, 0, sizeof(g_reg_file));
+
+    // Initialize the reset default capabilities and feature
+    // control.
+    g_reg_file.capabilities = capabilities;
+    g_reg_file.fctrl = fctrl;
 
     // Reset value for ddtp.iommu_mode field must be either Off or Bare. 
     // The reset value for ddtp.busy field must be 0.

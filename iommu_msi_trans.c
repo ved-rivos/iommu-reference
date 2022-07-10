@@ -126,7 +126,7 @@ msi_address_translation(
         *W = 1;
         *U = 1;
         // Cache the translation in the IOATC
-        cache_iotlb(iova, 
+        cache_ioatc_iotlb(iova, 
                     GV,                          // GV
                     0,                           // PSCV
                     GSCID, 0,                    // GSCID, PSCID tags

@@ -3,10 +3,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Author: ved@rivosinc.com
 #include "iommu.h"
+uint8_t g_command_queue_stall_for_itag = 0;
+uint8_t g_ats_inv_req_timeout = 0;
+uint8_t g_iofence_wait_pending_inv = 0;
+uint8_t g_iofence_pending_PR, g_iofence_pending_PW, g_iofence_pending_AV, g_iofence_pending_WIS_BIT; 
+uint64_t g_iofence_pending_ADDR; 
+uint32_t g_iofence_pending_DATA;
+
+uint8_t g_pending_inval_req_DSV; 
+uint8_t g_pending_inval_req_DSEG; 
+uint16_t g_pending_inval_req_RID;
+uint8_t g_pending_inval_req_PV;
+uint32_t g_pending_inval_req_PID;
+uint64_t g_pending_inval_req_PAYLOAD;
+
 void
 process_commands(
     void) {
-    uint8_t status, opcode, func3, GV, AV, PSCV, DV, DSV, PV, DSEG, PR, PW, WIS_BIT;
+    uint8_t status, opcode, func3, GV, AV, PSCV, DV, DSV, PV, DSEG, PR, PW, WIS_BIT, itag;
     uint16_t RID;
     uint32_t GSCID, PSCID, PID, DID, DATA;
     uint64_t a, ADDR, PAYLOAD, reserved;
@@ -35,10 +49,14 @@ process_commands(
     // If any of these bits are set then CQ stops processing from the 
     // command-queue. 
     // The command-queue is active if cqon is 1.
+    // Sometimes the command queue may stall due to unavailability of internal
+    // resources - e.g. ITAG trackers
     if ( (g_reg_file.cqcsr.cqon == 0) ||
          (g_reg_file.cqcsr.cqmf != 0) ||
          (g_reg_file.cqcsr.cmd_ill != 0) ||
-         (g_reg_file.cqcsr.cmd_to != 0) )
+         (g_reg_file.cqcsr.cmd_to != 0) ||
+         (g_command_queue_stall_for_itag != 0) ||
+         (g_iofence_wait_pending_inv != 0) )
         return;
 
     // If cqh == cqt, the command-queue is empty. 
@@ -55,11 +73,10 @@ process_commands(
         // interrupt is generated if an interrupt is not already pending (i.e.,
         // ipsr.cip == 1) and not masked (i.e. cqsr.cie == 0). To reenable 
         // command processing, software should clear this bit by writing 1
-
-        g_reg_file.cqcsr.cqmf = 1;
-
-        if ( g_reg_file.cqcsr.cie == 1 ) 
+        if ( g_reg_file.cqcsr.cqmf == 0 ) {
+            g_reg_file.cqcsr.cqmf = 1;
             generate_interrupt(COMMAND_QUEUE);
+        }
 
         return;
     }
@@ -130,9 +147,20 @@ process_commands(
             reserved = get_bits(31, 14, command.low);
             reserved|= get_bits(1,   0, command.high);
             if ( reserved ) goto command_illegal;
+            // The wired-interrupt-signaling (WIS) bit when set to 1 
+            // causes a wired-interrupt from the command
+            // queue to be generated on completion of IOFENCE.C. This
+            // bit is reserved if the IOMMU supports MSI.
+            if ( g_reg_file.fctrl.wis == 0 && WIS_BIT == 1) 
+                goto command_illegal;
             switch ( func3 ) {
                 case IOFENCE_C:
                     do_iofence_c(PR, PW, AV, WIS_BIT, ADDR, DATA);
+                    // If IOFENCE is waiting for invalidation requests
+                    // to complete then do not advance the CQ head
+                    if ( g_iofence_wait_pending_inv != 0 ) {
+                        return;
+                    }
                     break;
                 default: goto command_illegal;
             }
@@ -152,15 +180,25 @@ process_commands(
                 case INVAL:
                     // Allocate a ITAG for the request
                     if ( allocate_itag(DSV, DSEG, RID, &itag) ) { 
-                        // No ITAG available, CQ does not move till some responses
-                        // received and free up pending ITAGs. Or a timeout occurs
-                        return;
+                        // No ITAG available, This command stays pending
+                        // but since the reference implementation only
+                        // has one deep pending command buffer the CQ
+                        // is now stall till a completion or a timeout 
+                        // frees up pending ITAGs.
+                        g_pending_inval_req_DSV = DSV;
+                        g_pending_inval_req_DSEG = DSEG;
+                        g_pending_inval_req_RID = RID;
+                        g_pending_inval_req_PV = PV;
+                        g_pending_inval_req_PID = PID;
+                        g_pending_inval_req_PAYLOAD = PAYLOAD;
+                        g_command_queue_stall_for_itag = 1;
+                    } else {
+                        // ITAG allocated successfully, send invalidate request
+                        do_ats_msg(INVAL_REQ_MSG_CODE, itag, DSV, DSEG, RID, PV, PID, PAYLOAD);
                     }
-                    // ITAG allocated successfully, send invalidate request
-                    do_ats_msg(INVAL_REQ_MSG_CODE, DSV, DSEG, RID, PV, PID, PAYLOAD);
                     break;
                 case PRGR:
-                    do_ats_msg(PRGR_MSG_CODE, DSV, DSEG, RID, PV, PID, PAYLOAD);
+                    do_ats_msg(PRGR_MSG_CODE, 0, DSV, DSEG, RID, PV, PID, PAYLOAD);
                     break;
                 default: goto command_illegal;
             }
@@ -175,9 +213,16 @@ process_commands(
     return;
 
 command_illegal:
-    g_reg_file.cqcsr.cmd_ill = 1;
-    if ( g_reg_file.cqcsr.cie == 1 ) 
+    // If an illegal or unsupported command is fetched and decoded by
+    // the command-queue then the command-queue sets the cmd_ill
+    // bit and stops processing from the command-queue. When cmd_ill
+    // is set to 1, an interrupt is generated if not already pending (i.e.
+    // ipsr.cip == 1) and not masked (i.e. cqsr.cie == 0). To reenable 
+    // command processing software should clear this bit by writing 1
+    if ( g_reg_file.cqcsr.cmd_ill == 0 ) {
+        g_reg_file.cqcsr.cmd_ill = 1;
         generate_interrupt(COMMAND_QUEUE);
+    }
     return;
 }
 void
@@ -359,7 +404,8 @@ do_iotinval_gvma(
 }
 void
 do_ats_msg(
-    uint8_t MSGCODE, uint8_t DSV, uint8_t DSEG, uint16_t RID, uint8_t PV, uint32_t PID, uint64_t PAYLOAD) {
+    uint8_t MSGCODE, uint8_t TAG, uint8_t DSV, uint8_t DSEG, uint16_t RID, 
+    uint8_t PV, uint32_t PID, uint64_t PAYLOAD) {
     ats_msg_t msg;
     // The ATS.INVAL command instructs the IOMMU to send a “Invalidation Request” message 
     // to the PCIe device function identified by RID. An “Invalidation Request” message 
@@ -378,6 +424,7 @@ do_ats_msg(
     // If the DSV operand is 1, then a valid destination segment number is specified by 
     // the DSEG operand.
     msg.MSGCODE = MSGCODE;
+    msg.TAG     = TAG;
     msg.RID     = RID;
     msg.DSV     = DSV;
     msg.DSEG    = DSEG;
@@ -390,5 +437,92 @@ do_ats_msg(
 void
 do_iofence_c(
     uint8_t PR, uint8_t PW, uint8_t AV, uint8_t WIS_BIT, uint64_t ADDR, uint32_t DATA) {
+
+    uint8_t status;
+    // The IOMMU fetches commands from the CQ in order but the IOMMU may execute the fetched
+    // commands out of order. The IOMMU advancing cqh is not a guarantee that the commands 
+    // fetched by the IOMMU have been executed or committed. A IOFENCE.C command guarantees 
+    // that all previous commands fetched from the CQ have been completed and committed.
+    g_iofence_wait_pending_inv = 1;
+    if ( any_ats_invalidation_requests_pending() ) {
+        // if all previous ATS invalidation requests
+        // have not completed then IOFENCE waits for
+        // them to complete - or timeout
+        g_iofence_pending_PR = PR;
+        g_iofence_pending_PW = PW;
+        g_iofence_pending_AV = AV;
+        g_iofence_pending_WIS_BIT = WIS_BIT; 
+        g_iofence_pending_ADDR = ADDR; 
+        g_iofence_pending_DATA = DATA;
+        return;
+    }
+    // All previous pending invalidation requests completed or timed out
+    g_iofence_wait_pending_inv = 0;
+    // If any ATC invalidation requests timed out then set command timeout
+    if ( g_ats_inv_req_timeout == 1 ) {
+        if ( g_reg_file.cqcsr.cmd_to == 0 ) {
+            g_reg_file.cqcsr.cmd_to = 1;
+            generate_interrupt(COMMAND_QUEUE);
+        }
+        g_ats_inv_req_timeout = 0;
+    }
+    // The commands may be used to order memory accesses from I/O devices connected to the IOMMU
+    // as viewed by the IOMMU, other RISC-V harts, and external devices or co-processors. The 
+    // PR and PW bits can be used to request that the IOMMU ensure that all previous requests 
+    // from devices that have already been processed by the IOMMU be committed to a global 
+    // ordering point such that they can be observed by all RISC-V harts and IOMMUs in the machine.
+    if ( PR == 1 || PW == 1 )
+        iommu_to_hb_do_global_observability_sync(PR, PW);
+
+    // The wired-interrupt-signaling (WIS) bit when set to 1 causes a wired-interrupt from the command
+    // queue to be generated on completion of IOFENCE.C. This bit is reserved if the IOMMU supports MSI
+    if ( g_reg_file.cqcsr.fence_w_ip == 0 && WIS_BIT == 1 ) {
+        g_reg_file.cqcsr.fence_w_ip = 1;
+        generate_interrupt(COMMAND_QUEUE);
+    }
+    // The AV command operand indicates if ADDR[63:2] operand and DATA operands are valid. 
+    // If AV=1, the IOMMU writes DATA to memory at a 4-byte aligned address ADDR[63:2] * 4 as 
+    // a 4-byte store.
+    if ( AV == 1 ) {
+        status = write_memory((char *)&DATA, ADDR, 4);
+        if ( status != 0 ) {
+            if ( g_reg_file.cqcsr.cqmf == 0 ) {
+                g_reg_file.cqcsr.cqmf = 1;
+                generate_interrupt(COMMAND_QUEUE);
+            }
+        }
+    }
+    return;
+}
+// Retry a pending IOFENCE if all invalidations received
+void
+do_pending_iofence() {
+    if ( g_iofence_wait_pending_inv == 1 ) {
+        do_iofence_c(g_iofence_pending_PR, g_iofence_pending_PW, g_iofence_pending_AV, 
+                     g_iofence_pending_WIS_BIT, g_iofence_pending_ADDR, g_iofence_pending_DATA);
+    }
+    // If not still pending then advance the CQH
+    if ( g_iofence_wait_pending_inv == 1 ) {
+        g_reg_file.cqh.index =  
+            (g_reg_file.cqh.index + 1) & ((1 << (g_reg_file.cqb.log2szm1 + 1)) - 1);
+    }
+    return;
+}
+void 
+queue_any_blocked_ats_inval_req() {
+    uint8_t itag;
+    if ( g_command_queue_stall_for_itag == 0 ) {
+        // Allocate a ITAG for the request
+        if ( allocate_itag(g_pending_inval_req_DSV, g_pending_inval_req_DSEG, 
+                           g_pending_inval_req_RID, &itag) )
+            return;
+        // ITAG allocated successfully, send invalidate request
+        do_ats_msg(INVAL_REQ_MSG_CODE, itag, g_pending_inval_req_DSV, 
+                   g_pending_inval_req_DSEG, g_pending_inval_req_RID, 
+                   g_pending_inval_req_PV, g_pending_inval_req_PID, 
+                   g_pending_inval_req_PAYLOAD);
+        // Remove the command queue stall
+        g_command_queue_stall_for_itag = 0;
+    }
     return;
 }

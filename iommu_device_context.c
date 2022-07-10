@@ -82,7 +82,7 @@ locate_device_context(
     }
 
     // Determine if there is a cached device context
-    if ( lookup_ddt(device_id, DC) == IOATC_HIT )
+    if ( lookup_ioatc_dc(device_id, DC) == IOATC_HIT )
         return 0;
 
     // The process to locate the Device-context for transaction 
@@ -254,6 +254,6 @@ step_8:
         return 1;
     }
     //11. The device-context has been successfully located and may be cached.
-    cache_ddt(device_id, DC);
+    cache_ioatc_dc(device_id, DC);
     return 0;
 }

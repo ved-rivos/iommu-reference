@@ -95,25 +95,4 @@ typedef struct {
     iommu_trans_rsp_t trsp;
 } iommu_to_hb_rsp_t;
 
-// IOMMU generated notifications (invalidation requests and
-// page group responses)
-// IOMMU response to requests from the IO bridge
-// Message Code Routing r[2:0] Type  Description
-// 00000001     010            MsgD  Invalidate Request Message, see § Section 10.3.1
-// 00000010     010            Msg   Invalidate Completion Message, see § Section 10.3.2
-// 00000100     000            Msg   Page Request Message, see § Section 10.4.1
-// 00000101     010            Msg   PRG Response Message, see § Section 10.4.2
-#define INVAL_REQ_MSG_CODE   0x01
-#define INVAL_COMPL_MSG_CODE 0x02
-#define PAGE_REQ_MSG_CODE    0x04
-#define PRGR_MSG_CODE        0x05
-typedef struct {
-    uint8_t   MSGCODE;
-    uint32_t  RID;
-    uint8_t   PV;
-    uint32_t  PID;
-    uint8_t   DSV;
-    uint8_t   DSEG;
-    uint64_t  PAYLOAD;
-} ats_msg_t;
 #endif // __IOMMU_REQ_RSP_H__
