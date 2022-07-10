@@ -19,4 +19,6 @@ extern void iommu_handle_message(hb_to_iommu_req_t req, iommu_to_hb_rsp_t *rsp_m
 
 extern void iommu_to_hb_do_global_observability_sync(uint8_t PR, uint8_t PW);
 extern void send_msg_iommu_to_hb(ats_msg_t *prgr);
+
+extern uint64_t get_free_ppn(uint16_t num_ppn);
 #endif // __IOMMU_REF_API_H__

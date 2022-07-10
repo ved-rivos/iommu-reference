@@ -51,7 +51,7 @@ int reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t num_evts,
     if ( hpmctr_bits < 1 || hpmctr_bits > 62 ) {
         return -1;
     }
-    pa_mask  = ((1 << (capabilities.pas)) - 1);
+    pa_mask  = ((1UL << (capabilities.pas)) - 1);
     ppn_mask = pa_mask >> 12;
 
     evtID_mask = num_evts--;
@@ -117,12 +117,12 @@ int reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t num_evts,
     g_reg_types.ipsr.pip = 0;
     // Mark writeable bits in iocountinh
     g_reg_types.iocountinh.cy = (capabilities.pmon == 1) ? 0 : 1;
-    g_reg_types.iocountinh.hpm = (1 << num_hpm) - 1;
+    g_reg_types.iocountinh.hpm = (1UL << num_hpm) - 1;
     // Mark writeable bits in iohpmcycles
-    g_reg_types.iohpmcycles.counter = (1 << hpmctr_bits) - 1;
+    g_reg_types.iohpmcycles.counter = (1UL << hpmctr_bits) - 1;
     g_reg_types.iohpmcycles.of = (capabilities.pmon == 1) ? 0 : 1;
     for ( i = 0; i < num_hpm; i++ ) {
-        g_reg_types.iohpmctr[i].counter = (1 << hpmctr_bits) - 1;
+        g_reg_types.iohpmctr[i].counter = (1UL << hpmctr_bits) - 1;
         g_reg_types.iohpmevt[i].eventID ^= evtID_mask;
         g_reg_types.iohpmevt[i].dmask = 0;
         g_reg_types.iohpmevt[i].pid_pscid = 0;

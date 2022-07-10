@@ -41,7 +41,7 @@ handle_invalidation_completion(
     itag_vector = get_bits(31, 0, inv_cc->PAYLOAD);
     cc = get_bits(34, 32, inv_cc->PAYLOAD);
     for ( i = 0; i < MAX_ITAGS; i++ ) {
-        if ( itag_vector & (1 << i) ) {
+        if ( itag_vector & (1UL << i) ) {
             if ( itag_tracker[i].free == 1 ) 
                 return 1; // Unexpected completion
             if ( (itag_tracker[i].DSV == 1) &&
@@ -74,7 +74,7 @@ void
 do_ats_timer_expiry(uint32_t itag_vector) {
     uint8_t i;
     for ( i = 0; i < MAX_ITAGS; i++ ) {
-        if ( itag_vector & (1 << i) ) {
+        if ( itag_vector & (1UL << i) ) {
             itag_tracker[i].free = 1;
         }
     }
@@ -220,7 +220,7 @@ handle_page_request(
         goto send_prgr;
     }
 
-    pqt = (pqt + 1) & ((1 << (g_reg_file.pqb.log2szm1 + 1)) - 1);
+    pqt = (pqt + 1) & ((1UL << (g_reg_file.pqb.log2szm1 + 1)) - 1);
     g_reg_file.pqt.index = pqt;
     generate_interrupt(PAGE_QUEUE);
     return;

@@ -209,7 +209,7 @@ process_commands(
     // into the command queue that IOMMU should process next. Subsequent to reading
     // each command the IOMMU may advance the `cqh` by 1.
     g_reg_file.cqh.index =  
-        (g_reg_file.cqh.index + 1) & ((1 << (g_reg_file.cqb.log2szm1 + 1)) - 1);
+        (g_reg_file.cqh.index + 1) & ((1UL << (g_reg_file.cqb.log2szm1 + 1)) - 1);
     return;
 
 command_illegal:
@@ -504,7 +504,7 @@ do_pending_iofence() {
     // If not still pending then advance the CQH
     if ( g_iofence_wait_pending_inv == 1 ) {
         g_reg_file.cqh.index =  
-            (g_reg_file.cqh.index + 1) & ((1 << (g_reg_file.cqb.log2szm1 + 1)) - 1);
+            (g_reg_file.cqh.index + 1) & ((1UL << (g_reg_file.cqb.log2szm1 + 1)) - 1);
     }
     return;
 }

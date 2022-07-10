@@ -20,7 +20,7 @@ count_events(
         // register where that contains bits to inhibit the corresponding 
         // counters from counting. Bit X when set inhibits counting in 
         // iohpmctrX and bit 0 inhibits counting in iohpmcycles.
-        if ( g_reg_file.iocountinh.raw & (1 << i) ) continue;
+        if ( g_reg_file.iocountinh.raw & (1UL << i) ) continue;
 
         // Counter is not inhibited check if it matches
         // These performance-monitoring event registers are 64-bit RW 
@@ -82,8 +82,8 @@ count_events(
         }
         // Counter is not inhibited and all filters pass
         count = g_reg_file.iohpmctr[i].counter + 1;
-        g_reg_file.iohpmctr[i].counter = (count & ((1 << g_hpmctr_bits) - 1));
-        if ( count & (1 << g_hpmctr_bits) ) {
+        g_reg_file.iohpmctr[i].counter = (count & ((1UL << g_hpmctr_bits) - 1));
+        if ( count & (1UL << g_hpmctr_bits) ) {
             // The OF bit is set when the corresponding iohpmctr* overflows, 
             // and remains set until cleared by software. Since iohpmctr* 
             // values are unsigned values, overflow is defined as unsigned 

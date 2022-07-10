@@ -80,7 +80,7 @@ write_register(
     iohpmevt_t iohpmevt_temp;
     msi_addr_t msi_addr_temp;
     msi_vec_ctrl_t msi_vec_ctrl_temp;
-    uint64_t pa_mask  = (((uint64_t)1 << (g_reg_file.capabilities.pas)) - 1);
+    uint64_t pa_mask  = ((1UL << (g_reg_file.capabilities.pas)) - 1);
     uint64_t ppn_mask = pa_mask >> 12;
 
     // If access is not valid then discard the write
@@ -188,12 +188,13 @@ write_register(
                 return;
             // If a illegal value written to ddtp.iommu_mode then 
             // retain the current legal value
-            if ( ddtp_temp.iommu_mode != Off &&
-                 ddtp_temp.iommu_mode != DDT_Bare &&
-                 ddtp_temp.iommu_mode != DDT_1LVL &&
-                 ddtp_temp.iommu_mode != DDT_2LVL &&
-                 ddtp_temp.iommu_mode != DDT_3LVL )
+            if ( (ddtp_temp.iommu_mode == Off) ||
+                 (ddtp_temp.iommu_mode == DDT_Bare) ||
+                 (ddtp_temp.iommu_mode == DDT_1LVL) ||
+                 (ddtp_temp.iommu_mode == DDT_2LVL) ||
+                 (ddtp_temp.iommu_mode == DDT_3LVL) )
                 g_reg_file.ddtp.iommu_mode = ddtp_temp.iommu_mode;
+            printf("DDTP mode = %d-%d\n", ddtp_temp.iommu_mode, DDT_3LVL);
             g_reg_file.ddtp.ppn = ddtp_temp.ppn & ppn_mask;
             break;
         case CQB_OFFSET:
@@ -220,7 +221,7 @@ write_register(
             if ( g_reg_file.cqcsr.busy || g_reg_file.cqcsr.cqon )
                 return;
             g_reg_file.cqt.index = cqt_temp.index & 
-                (((uint32_t)1 << (g_reg_file.cqb.log2szm1 + 1)) - 1);
+                ((1UL << (g_reg_file.cqb.log2szm1 + 1)) - 1);
             break;
         case FQB_OFFSET:
             // The fault-queue is active if `fqon` reads 1.
@@ -247,7 +248,7 @@ write_register(
             if ( g_reg_file.fqcsr.busy || g_reg_file.fqcsr.fqon )
                 return;
             g_reg_file.fqh.index = fqh_temp.index & 
-                (((uint32_t)1 << (g_reg_file.fqb.log2szm1 + 1)) - 1);
+                ((1UL << (g_reg_file.fqb.log2szm1 + 1)) - 1);
             break;
         case FQT_OFFSET:
             // This register is read only
@@ -283,7 +284,7 @@ write_register(
             if ( g_reg_file.pqcsr.busy || g_reg_file.pqcsr.pqon )
                 break;
             g_reg_file.pqh.index = pqh_temp.index & 
-                (((uint32_t)1 << (g_reg_file.pqb.log2szm1 + 1)) - 1);
+                ((1UL << (g_reg_file.pqb.log2szm1 + 1)) - 1);
             break;
         case PQT_OFFSET:
             // This register is read only
@@ -555,13 +556,13 @@ write_register(
         case IOCNTINH_OFFSET:
             // This register is read-only 0 if capabilities.PMON is 0
             if ( g_reg_file.capabilities.pmon == 1 )
-                g_reg_file.iocountinh.raw = data4 & ((1 << g_num_hpm) - 1);
+                g_reg_file.iocountinh.raw = data4 & ((1UL << g_num_hpm) - 1);
             break;
         case IOHPMCYCLES_OFFSET:
             // This register is read-only 0 if capabilities.PMON is 0
             if ( g_reg_file.capabilities.pmon == 1 ) {
                 g_reg_file.iohpmcycles.counter = 
-                    iohpmcycles_temp.counter & ((1 << g_hpmctr_bits) - 1);
+                    iohpmcycles_temp.counter & ((1UL << g_hpmctr_bits) - 1);
                 g_reg_file.iohpmcycles.of = iohpmcycles_temp.of;
             }
             break;
@@ -602,7 +603,7 @@ write_register(
                 // Writes discarded to non implemented HPM counters
                 if ( ctr_num <= (g_num_hpm - 1) )  {
                     // These registers are 64-bit WARL counter registers
-                    g_reg_file.iohpmctr[ctr_num - 1].counter = data8 & ((1 << g_hpmctr_bits) - 1);
+                    g_reg_file.iohpmctr[ctr_num - 1].counter = data8 & ((1UL << g_hpmctr_bits) - 1);
                 }
             }
             break;
@@ -667,10 +668,10 @@ write_register(
             // bits of this register may be hardwired to 0 (WARL). Likewise 
             // if only two vectors are supported then only bit 0 for each 
             // cause could be writable.
-            g_reg_file.icvec.pmiv = icvec_temp.pmiv & ((1 << g_num_vec_bits) - 1);
-            g_reg_file.icvec.piv  = icvec_temp.piv & ((1 << g_num_vec_bits) - 1);
-            g_reg_file.icvec.fiv  = icvec_temp.fiv & ((1 << g_num_vec_bits) - 1);
-            g_reg_file.icvec.civ  = icvec_temp.civ & ((1 << g_num_vec_bits) - 1);
+            g_reg_file.icvec.pmiv = icvec_temp.pmiv & ((1UL << g_num_vec_bits) - 1);
+            g_reg_file.icvec.piv  = icvec_temp.piv & ((1UL << g_num_vec_bits) - 1);
+            g_reg_file.icvec.fiv  = icvec_temp.fiv & ((1UL << g_num_vec_bits) - 1);
+            g_reg_file.icvec.civ  = icvec_temp.civ & ((1UL << g_num_vec_bits) - 1);
             break;
         case MSI_ADDR_0_OFFSET:
         case MSI_ADDR_1_OFFSET:
@@ -699,7 +700,7 @@ write_register(
             if ( g_reg_file.capabilities.igs == WIS )
                 break;
             x = (offset - MSI_ADDR_0_OFFSET) / 16;
-            if ( x >= (1 << g_num_vec_bits) ) 
+            if ( x >= (1UL << g_num_vec_bits) ) 
                 break;
             msi_addr_temp.addr = msi_addr_temp.addr & (pa_mask >> 2);
             g_reg_file.msi_cfg_tbl[x].msi_addr.addr = msi_addr_temp.addr;
@@ -731,7 +732,7 @@ write_register(
             if ( g_reg_file.capabilities.igs == WIS )
                 break;
             x = (offset - MSI_ADDR_0_OFFSET) / 16;
-            if ( x >= (1 << g_num_vec_bits) ) 
+            if ( x >= (1UL << g_num_vec_bits) ) 
                 break;
             g_reg_file.msi_cfg_tbl[x].msi_data = data4;
             break;
@@ -762,7 +763,7 @@ write_register(
             if ( g_reg_file.capabilities.igs == WIS )
                 break;
             x = (offset - MSI_ADDR_0_OFFSET) / 16;
-            if ( x >= (1 << g_num_vec_bits) ) 
+            if ( x >= (1UL << g_num_vec_bits) ) 
                 break;
             g_reg_file.msi_cfg_tbl[x].msi_vec_ctrl.m = msi_vec_ctrl_temp.m;
             break;

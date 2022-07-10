@@ -9,7 +9,7 @@ extract(uint64_t data, uint64_t mask) {
     uint32_t i, j = 0;
     uint64_t I = 0;
     for ( i = 0; i < 64; i++ ) {
-        if ( mask & (1 << i) ) {
+        if ( mask & (1UL << i) ) {
             I |= (((data >> i) & 0x01) << j);
             j++;
         }
@@ -64,7 +64,7 @@ msi_address_translation(
     //    bit that may be set to 1 to enable big-endian access to memory. If the IOMMU
     //    is not capable or has not been configured for big-endian access to memory,
     //    then stop this process and treat the transaction as an unsupported request.
-    if ( (I & (1 << 2) ) && (g_reg_file.fctrl.end == 0) ) {
+    if ( (I & (1UL << 2) ) && (g_reg_file.fctrl.end == 0) ) {
         *is_unsup = 1;
         return 0;
     }
@@ -187,7 +187,7 @@ msi_address_translation(
         mrif_dw_addr = (msipte.mrif.MRIF_ADDR * 512) + (D >> 5);
         status = read_memory_for_AMO((msipte.mrif.MRIF_ADDR * 512), 4, (char *)&mrif_dw);
         if ( status == 0 ) {
-            mrif_dw |= (1 << (D & 0x1F));
+            mrif_dw |= (1UL << (D & 0x1F));
             status = write_memory((char *)&mrif_dw, mrif_dw_addr, 4);
         }
     }
@@ -199,7 +199,7 @@ msi_address_translation(
         mrif_dw_addr = (msipte.mrif.MRIF_ADDR * 512) + (D >> 5);
         status = read_memory((msipte.mrif.MRIF_ADDR * 512), 4, (char *)&mrif_dw);
         if ( status == 0 ) {
-            mrif_dw |= (1 << (D & 0x1F));
+            mrif_dw |= (1UL << (D & 0x1F));
             status = write_memory((char *)&mrif_dw, mrif_dw_addr, 4);
         }
     }

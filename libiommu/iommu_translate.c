@@ -176,15 +176,15 @@ iommu_translate_iova(
     } 
 
     if ( req.pid_valid && DC.tc.PDTV == 1 ) {
-        if ( DC.fsc.pdtp.MODE == PD20 && req.process_id > ((1 << 20) - 1) ) {
+        if ( DC.fsc.pdtp.MODE == PD20 && req.process_id > ((1UL << 20) - 1) ) {
             cause = 260; // "Transaction type disallowed" 
             goto stop_and_report_fault;
         } 
-        if ( DC.fsc.pdtp.MODE == PD17 && req.process_id > ((1 << 17) - 1) ) {
+        if ( DC.fsc.pdtp.MODE == PD17 && req.process_id > ((1UL << 17) - 1) ) {
             cause = 260; // "Transaction type disallowed" 
             goto stop_and_report_fault;
         }
-        if ( DC.fsc.pdtp.MODE == PD8 && req.process_id > ((1 << 8) - 1) ) {
+        if ( DC.fsc.pdtp.MODE == PD8 && req.process_id > ((1UL << 8) - 1) ) {
             cause = 260; // "Transaction type disallowed" 
             goto stop_and_report_fault;
         }
@@ -327,12 +327,12 @@ step_16:
 step_18:
     // 18. Translation process is complete
     rsp_msg->status          = SUCCESS;
-    rsp_msg->trsp.PPN        = (pa & ~(page_sz - 1));
+    rsp_msg->trsp.PPN        = (pa & ~(page_sz - 1))/PAGESIZE;
     rsp_msg->trsp.is_msi     = is_msi;
     rsp_msg->trsp.is_mrif_wr = is_mrif_wr;
     rsp_msg->trsp.mrif_nid   = mrif_nid;
 
-    if ( req.tr.at != ADDR_TYPE_PCIE_ATS_TRANSLATION_REQUEST ) {
+    if ( req.tr.at == ADDR_TYPE_PCIE_ATS_TRANSLATION_REQUEST ) {
         // When a Success response is generated for a ATS translation request, the setting
         // of the Priv, N, CXL.io, and AMA fields is as follows:
         // * Priv field of the ATS translation completion is always set to 0 if the request

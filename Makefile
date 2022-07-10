@@ -1,4 +1,4 @@
-SUBDIRS = libiommu test
+SUBDIRS = libiommu libtables test
 all:
 	@for i in $(SUBDIRS); do \
 	    echo "Building $$i";\

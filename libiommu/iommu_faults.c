@@ -137,7 +137,7 @@ report_fault(uint16_t cause, uint64_t iotval, uint64_t iotval2, uint8_t TTYP, ui
     if ( (status & ACCESS_FAULT) || (status & DATA_CORRUPTION) ) {
         g_reg_file.fqcsr.fqmf = 1;
     } else {
-        fqt = (fqt + 1) & ((1 << (g_reg_file.fqb.log2szm1 + 1)) - 1);
+        fqt = (fqt + 1) & ((1UL << (g_reg_file.fqb.log2szm1 + 1)) - 1);
         g_reg_file.fqt.index = fqt;
     }
     generate_interrupt(FAULT_QUEUE);
