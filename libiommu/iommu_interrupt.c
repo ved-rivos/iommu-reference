@@ -11,7 +11,7 @@ generate_interrupt(
     msi_addr_t msi_addr;
     uint32_t msi_data;
     msi_vec_ctrl_t msi_vec_ctrl;
-    uint8_t  vec;
+    uint8_t  vec, status;
 
 
     // Interrupt pending status register (ipsr)
@@ -79,7 +79,13 @@ generate_interrupt(
         // message.
         if ( msi_vec_ctrl.m == 1 )
             return;
-        write_memory((char *)&msi_data, msi_addr.raw, 4);
+        status = write_memory((char *)&msi_data, msi_addr.raw, 4);
+        if ( status & ACCESS_FAULT ) {
+            // If an access fault is detected on a MSI write using msi_addr_x, 
+            // then the IOMMU reports a "IOMMU MSI write access fault" (cause 273) fault, 
+            // with TTYP set to 0 and iotval set to the value of msi_addr_x.
+            report_fault(273, msi_addr.raw, 0, TTYPE_NONE, 0, 0, 0, 0, 0);
+        }
     }
     return;
 }

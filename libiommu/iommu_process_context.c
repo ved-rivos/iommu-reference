@@ -72,10 +72,10 @@ locate_process_context(
 
 step_2:
     // 2. If `DC.iohgatp.mode != Bare`, then `a` is a GPA. Invoke the process
-    //    to translate `a` to a SPA. If faults occur during G-stage address
-    //    translation of `a` then stop and the fault detected by the G-stage
-    //    address translation process. The translated `a` is used in 
-    //    subsequent steps.
+    //    to translate `a` to a SPA as an implicit memory access. If faults 
+    //    occur during G-stage address translation of `a` then stop and the fault
+    //    detected by the G-stage address translation process. The translated `a`
+    //    is used in subsequent steps.
     if ( g_stage_address_translation(a, 1, 0, 0, 1,
             DC->iohgatp, cause, iotval2, &a, &gst_page_sz, &GR, &GW, &GX, &GD, &GPBMT,
             1, process_id, 0, 0, device_id, ((DC->iohgatp.MODE == IOHGATP_Bare) ? 0 : 1), 

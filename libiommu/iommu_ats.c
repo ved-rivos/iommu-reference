@@ -108,10 +108,14 @@ handle_page_request(
     // the requestor. 
     device_id =  ( pr->DSV == 1 ) ? (pr->RID | (pr->DSEG << 16)) : pr->RID;
     if ( locate_device_context(&DC, device_id, pr->PV, pr->PID, &cause) ) {
+        report_fault(cause, PAGE_REQ_MSG_CODE, 0, MESSAGE_REQUEST, 0, 
+                     device_id, pr->PV, pr->PID, pr->PRIV);
         response_code = RESPONSE_FAILURE;
         goto send_prgr;
     }
     if ( DC.tc.EN_ATS == 0 || DC.tc.EN_PRI == 0 ) {
+        report_fault(cause, PAGE_REQ_MSG_CODE, 0, MESSAGE_REQUEST, 0, 
+                     device_id, pr->PV, pr->PID, pr->PRIV);
         response_code = INVALID_REQUEST;
         goto send_prgr;
     }

@@ -6,3 +6,6 @@ all:
 clean:
 	@for i in $(SUBDIRS); do \
 	    (cd $$i; $(MAKE) -s --no-print-directory clean); done
+
+run:
+	test/iommu

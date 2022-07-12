@@ -506,10 +506,11 @@ write_register(
             // IOMMU will not signal another interrupt from that source till
             // software clears that interrupt-pending bit by writing 1 to clear it.
             // Update the RW1C bits - clear if written to 1
+
+            // Clear cip and pend interrupt If there are unacknowledge 
+            // interrupts from CQ and if CQ interrupts are enabled
             if ( ipsr_temp.cip == 1 )
                 g_reg_file.ipsr.cip = 0;
-            // Pend interrupt If there are unacknowledge interrupts from CQ
-            // If interrupts are enabled
             if ( ipsr_temp.cip == 1 ) {
                 if ( (g_reg_file.cqcsr.cmd_to ||
                       g_reg_file.cqcsr.cmd_ill ||
@@ -519,10 +520,10 @@ write_register(
                     generate_interrupt(COMMAND_QUEUE);
                 }
             }
+            // Clear fip and pend interrupt If there are unacknowledge 
+            // interrupts from FQ and if FQ interrupts are enabled
             if ( ipsr_temp.fip == 1 )
                 g_reg_file.ipsr.fip = 0;
-            // Pend interrupt If there are unacknowledge interrupts from FQ
-            // If interrupts are enabled
             if ( ipsr_temp.fip == 1 ) {
                 if ( (g_reg_file.fqcsr.fqof ||
                       g_reg_file.fqcsr.fqmf) &&
@@ -530,18 +531,11 @@ write_register(
                     generate_interrupt(FAULT_QUEUE);
                 }
             }
-            if ( ipsr_temp.pmip == 1 )
-                g_reg_file.ipsr.pmip = 0;
-            // Pend interrupt If there are unacknowledge interrupts from PMU
-            // NOTE THERE IS A BUG HERE - TBD to solve
-            if ( ipsr_temp.pmip == 1 ) {
-                if ( get_iocountovf() != 0 )
-                    generate_interrupt(PMU);
-            }
+
+            // Clear pip and pend interrupt If there are unacknowledge 
+            // interrupts from PQ and if PQ interrupts are enabled
             if ( ipsr_temp.pip == 1 )
                 g_reg_file.ipsr.pip = 0;
-            // Pend interrupt If there are unacknowledge interrupts from FQ
-            // If interrupts are enabled
             if ( ipsr_temp.pip == 1 ) {
                 if ( (g_reg_file.pqcsr.pqof ||
                       g_reg_file.pqcsr.pqmf) &&
@@ -549,6 +543,10 @@ write_register(
                     generate_interrupt(PAGE_QUEUE);
                 }
             }
+            // Note that pmip is only set on a OF 0->1 edge
+            // from one of the HPM counters only.
+            if ( ipsr_temp.pmip == 1 )
+                g_reg_file.ipsr.pmip = 0;
             break;
         case IOCNTOVF_OFFSET:
             // This register is read only
