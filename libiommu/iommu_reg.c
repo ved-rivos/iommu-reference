@@ -552,13 +552,13 @@ write_register(
             // This register is read only
             return;
         case IOCNTINH_OFFSET:
-            // This register is read-only 0 if capabilities.PMON is 0
-            if ( g_reg_file.capabilities.pmon == 1 )
+            // This register is read-only 0 if capabilities.HPM is 0
+            if ( g_reg_file.capabilities.hpm == 1 )
                 g_reg_file.iocountinh.raw = data4 & ((1UL << g_num_hpm) - 1);
             break;
         case IOHPMCYCLES_OFFSET:
-            // This register is read-only 0 if capabilities.PMON is 0
-            if ( g_reg_file.capabilities.pmon == 1 ) {
+            // This register is read-only 0 if capabilities.HPM is 0
+            if ( g_reg_file.capabilities.hpm == 1 ) {
                 g_reg_file.iohpmcycles.counter = 
                     iohpmcycles_temp.counter & ((1UL << g_hpmctr_bits) - 1);
                 g_reg_file.iohpmcycles.of = iohpmcycles_temp.of;
@@ -595,8 +595,8 @@ write_register(
         case IOHPMCTR29_OFFSET:
         case IOHPMCTR30_OFFSET:
         case IOHPMCTR31_OFFSET:
-            // These register are read-only 0 if capabilities.PMON is 0
-            if ( g_reg_file.capabilities.pmon == 1 ) { 
+            // These register are read-only 0 if capabilities.HPM is 0
+            if ( g_reg_file.capabilities.hpm == 1 ) { 
                 ctr_num = ((offset - IOHPMCTR1_OFFSET)/8) + 1;
                 // Writes discarded to non implemented HPM counters
                 if ( ctr_num <= (g_num_hpm - 1) )  {
@@ -636,8 +636,8 @@ write_register(
         case IOHPMEVT29_OFFSET:
         case IOHPMEVT30_OFFSET:
         case IOHPMEVT31_OFFSET:
-            // These register are read-only 0 if capabilities.PMON is 0
-            if ( g_reg_file.capabilities.pmon == 1 ) { 
+            // These register are read-only 0 if capabilities.HPM is 0
+            if ( g_reg_file.capabilities.hpm == 1 ) { 
                 ctr_num = ((offset - IOHPMCTR1_OFFSET)/8);
                 iohpmevt_temp.eventID &= g_eventID_mask;
                 // Writes discarded to non implemented HPM counters
@@ -651,8 +651,8 @@ write_register(
             // The performance-monitoring-interrupt-vector
             // (`pmiv`) is the vector number assigned to the
             // performance-monitoring-interrupt. This field is
-            // read-only 0 if `capabilities.PMON` is 0.
-            if ( g_reg_file.capabilities.pmon == 0 ) { 
+            // read-only 0 if `capabilities.HPM` is 0.
+            if ( g_reg_file.capabilities.hpm == 0 ) { 
                 icvec_temp.pmiv = 0;
             }
             // The page-request-queue-interrupt-vector (`piv`)
@@ -789,8 +789,8 @@ reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t eventID_mask,
           (capabilities.igs == WIS && fctrl.wis == 0)) )
         return -1;
     // Only 15-bit event ID supported
-    // Mask must be 0 when pmon not supported
-    if ( g_eventID_mask != 0 && capabilities.pmon == 0 )
+    // Mask must be 0 when hpm not supported
+    if ( g_eventID_mask != 0 && capabilities.hpm == 0 )
         return -1; 
     // vectors is a number between 1 and 15
     if ( num_vec_bits > 4 )
@@ -798,13 +798,13 @@ reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t eventID_mask,
     // Number of HPM counters must be between 0 and 31
     // If perfmon is not supported then should be 0
     if ( num_hpm > 31 ||
-         (num_hpm != 0 && capabilities.pmon == 0) )
+         (num_hpm != 0 && capabilities.hpm == 0) )
         return -1;
     // HPM counters must be between 1 and 63 bits
     if ( (hpmctr_bits < 1 || hpmctr_bits > 63)  && 
-         (capabilities.pmon == 1) )
+         (capabilities.hpm == 1) )
         return -1;
-    if ( hpmctr_bits != 0 && capabilities.pmon == 0 ) 
+    if ( hpmctr_bits != 0 && capabilities.hpm == 0 ) 
         return -1;
     // Reset value for ddtp.iommu_mode field must be either Off or Bare
     if ( reset_iommu_mode != Off && reset_iommu_mode != DDT_Bare )

@@ -68,7 +68,7 @@ typedef union {
                                    //                      must be defined in `fctrl`
                                    //                      register.
                                    // !3      ! 0        ! Reserved for standard use
-        uint64_t pmon    : 1;      // IOMMU implements a performance-monitoring unit
+        uint64_t hpm     : 1;      // IOMMU implements a performance-monitoring unit
         uint64_t pas     : 6;      // Physical Address Size (value between 32 and 56)
         uint64_t rsvd3   : 11;     // Reserved for standard use
         uint64_t custom  : 16;     // _Reserved for custom use_

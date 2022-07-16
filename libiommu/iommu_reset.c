@@ -44,7 +44,7 @@ int reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t num_evts,
     // Number of HPM counters must be between 0 and 31
     // If perfmon is not supported then should be 0
     if ( num_hpm > 31 ||
-         (num_hpm != 0 && capabilities.pmon == 0) ) {
+         (num_hpm != 0 && capabilities.hpm == 0) ) {
         return -1;
     }
     // HPM counters must be between 1 and 62 bits
@@ -116,11 +116,11 @@ int reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t num_evts,
     g_reg_types.ipsr.pmip = 0;
     g_reg_types.ipsr.pip = 0;
     // Mark writeable bits in iocountinh
-    g_reg_types.iocountinh.cy = (capabilities.pmon == 1) ? 0 : 1;
+    g_reg_types.iocountinh.cy = (capabilities.hpm == 1) ? 0 : 1;
     g_reg_types.iocountinh.hpm = (1UL << num_hpm) - 1;
     // Mark writeable bits in iohpmcycles
     g_reg_types.iohpmcycles.counter = (1UL << hpmctr_bits) - 1;
-    g_reg_types.iohpmcycles.of = (capabilities.pmon == 1) ? 0 : 1;
+    g_reg_types.iohpmcycles.of = (capabilities.hpm == 1) ? 0 : 1;
     for ( i = 0; i < num_hpm; i++ ) {
         g_reg_types.iohpmctr[i].counter = (1UL << hpmctr_bits) - 1;
         g_reg_types.iohpmevt[i].eventID ^= evtID_mask;
