@@ -80,6 +80,8 @@ write_register(
     iohpmevt_t iohpmevt_temp;
     msi_addr_t msi_addr_temp;
     msi_vec_ctrl_t msi_vec_ctrl_temp;
+    hb_to_iommu_req_t req; 
+    iommu_to_hb_rsp_t rsp;
     uint64_t pa_mask  = ((1UL << (g_reg_file.capabilities.pas)) - 1);
     uint64_t ppn_mask = pa_mask >> 12;
 
@@ -647,6 +649,60 @@ write_register(
                 }
             }
             break;
+
+        case TR_REQ_IOVA_OFFSET:
+            // The IOMMU behavior is UNSPECIFIED if:
+            // • The tr_req_iova or tr_req_ctrl are modified when the Go/Busy bit is 1.
+            // * IOMMU configurations such as ddtp.iommu_mode, etc. are modified.
+            // The reference model ignores writes
+            // The `tr_req_iova` is a 64-bit WARL register used to implement a
+            // translation-request interface for debug. This register is present when 
+            // `capabilities.DBG == 1`.
+            if ( g_reg_file.capabilities.dbg == 1 ) { 
+                if ( g_reg_file.tr_req_ctrl.go_busy == 0 ) {
+                    g_reg_file.tr_req_iova.raw = data8;
+                }
+            }
+            break;
+        case TR_REQ_CTRL_OFFSET:
+            // The IOMMU behavior is UNSPECIFIED if:
+            // • The tr_req_iova or tr_req_ctrl are modified when the Go/Busy bit is 1.
+            // * IOMMU configurations such as ddtp.iommu_mode, etc. are modified.
+            // The reference model ignores writes
+            // The `tr_req_ctrl` is a 64-bit WARL register used to implement a
+            // translation-request interface for debug. This register is present when 
+            // `capabilities.DBG == 1`.
+            if ( g_reg_file.capabilities.dbg == 1 ) { 
+                if ( g_reg_file.tr_req_ctrl.go_busy == 0 ) {
+                    g_reg_file.tr_req_ctrl.raw = data8;
+                    g_reg_file.tr_req_ctrl.reserved = 0;
+                    g_reg_file.tr_req_ctrl.custom = 0;
+                }
+                // On a g_busy 0->1 transition kick off a translation
+                if ( g_reg_file.tr_req_ctrl.go_busy == 1 ) {
+                    req.device_id = g_reg_file.tr_req_ctrl.DID;
+                    req.pid_valid = g_reg_file.tr_req_ctrl.PV;
+                    req.process_id = g_reg_file.tr_req_ctrl.PID;
+                    req.exec_req = g_reg_file.tr_req_ctrl.Exe;
+                    req.priv_req = g_reg_file.tr_req_ctrl.Priv;
+                    req.is_cxl_dev = 0;
+                    req.tr.at = ADDR_TYPE_UNTRANSLATED;
+                    req.tr.iova = g_reg_file.tr_req_iova.raw;
+                    req.tr.length = 1;
+                    req.tr.read_writeAMO = (g_reg_file.tr_req_ctrl.RWn == 1) ? READ : WRITE;
+
+                    iommu_translate_iova(req, &rsp);
+
+                    g_reg_file.tr_response.fault = (rsp.status == SUCCESS) ? 0 : 1;
+                    g_reg_file.tr_response.PPN = rsp.trsp.PPN;
+                    g_reg_file.tr_response.S = rsp.trsp.S;
+                    g_reg_file.tr_response.PBMT = rsp.trsp.PBMT;
+                    g_reg_file.tr_response.reserved = 0;
+                    g_reg_file.tr_response.custom = 0;
+                    g_reg_file.tr_req_ctrl.go_busy = 0;
+                }
+            }
+            break;
         case ICVEC_OFFSET:
             // The performance-monitoring-interrupt-vector
             // (`pmiv`) is the vector number assigned to the
@@ -869,7 +925,13 @@ reset_iommu(uint8_t num_hpm, uint8_t hpmctr_bits, uint16_t eventID_mask,
     for ( i = IOHPMEVT1_OFFSET; i < IOHPMEVT1_OFFSET + (8 * 31); i += 8 ) {
         g_offset_to_size[i] = 8;
     }
-    for ( i = 600; i < ICVEC_OFFSET; i++ ) {
+    g_offset_to_size[TR_REQ_IOVA_OFFSET] = 8;
+    g_offset_to_size[TR_REQ_IOVA_OFFSET + 4] = 4;
+    g_offset_to_size[TR_REQ_CTRL_OFFSET] = 8;
+    g_offset_to_size[TR_REQ_CTRL_OFFSET + 4] = 4;
+    g_offset_to_size[TR_RESPONSE_OFFSET] = 8;
+    g_offset_to_size[TR_RESPONSE_OFFSET + 4] = 4;
+    for ( i = RESERVED_OFFSET; i < ICVEC_OFFSET; i++ ) {
         g_offset_to_size[i] = 1;
     }
     g_offset_to_size[ICVEC_OFFSET] = 4;

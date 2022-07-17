@@ -22,6 +22,7 @@ main(void) {
     cap.version = 0x10;
     cap.Sv39 = cap.Sv48 = cap.Sv39x4 = cap.Sv48x4 = 1;
     cap.amo = cap.ats = cap.t2gpa = cap.hpm = cap.msi_flat = cap.msi_mrif = 1;
+    cap.dbg = 1;
     cap.pas = 46;
 
     if ( reset_iommu(8, 40, 0xff, 4, Off, cap, fctrl) < 0 ) {
@@ -101,6 +102,27 @@ main(void) {
     printf("  is_msi     = %x\n", rsp_msg.trsp.is_msi);
     printf("  is_mrif_wr = %x\n", rsp_msg.trsp.is_mrif_wr);
     printf("  mrif_nid   = %x\n", rsp_msg.trsp.mrif_nid);
+
+    tr_req_iova_t tr_req_iova;
+    tr_req_ctrl_t tr_req_ctrl;
+    tr_response_t tr_response;
+    tr_req_iova.raw = (512 * PAGESIZE);
+    tr_req_ctrl.DID = 0x012345;
+    tr_req_ctrl.PV = 0;
+    tr_req_ctrl.RWn = 1;
+    tr_req_ctrl.go_busy = 1;
+    write_register(TR_REQ_IOVA_OFFSET, 8, tr_req_iova.raw);
+    write_register(TR_REQ_CTRL_OFFSET, 8, tr_req_ctrl.raw);
+    tr_response.raw = read_register(TR_RESPONSE_OFFSET, 8);
+    printf("Translation received \n");
+    printf("  Status     = %x \n", tr_response.fault);
+    printf("  PPN        = %"PRIx64"\n", (uint64_t)tr_response.PPN);
+    printf("  S          = %x\n", tr_response.S);
+    printf("  PBMT       = %x\n", tr_response.PBMT);
+    tr_req_ctrl.raw = read_register(TR_REQ_CTRL_OFFSET, 8);
+    printf("  busy       = %x\n", tr_req_ctrl.go_busy);
+
+
 
     return 0;
 }
