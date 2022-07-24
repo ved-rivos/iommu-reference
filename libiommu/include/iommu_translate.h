@@ -5,7 +5,7 @@
 #ifndef __IOMMU_TRANSLATE_H__
 #define __IOMMU_TRANSLATE_H__
 
-#define PAGESIZE 4096
+#define PAGESIZE 4096UL
 #define U_MODE   0
 #define S_MODE   1
 #define PMA      0

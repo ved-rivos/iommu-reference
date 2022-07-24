@@ -5,8 +5,9 @@
 #include "iommu.h"
 #include "tables_api.h"
 uint8_t
-add_s_stage_pte (
-    iosatp_t satp, uint64_t va, pte_t pte, uint8_t add_level) {
+add_vs_stage_pte (
+    iosatp_t satp, uint64_t va, pte_t pte, uint8_t add_level,
+    iohgatp_t iohgatp) {
 
     uint16_t vpn[5];
     uint64_t a;
@@ -44,16 +45,18 @@ add_s_stage_pte (
     i = LEVELS - 1;
     a = satp.PPN * PAGESIZE;
     while ( i > add_level ) {
+        if ( translate_gpa(iohgatp, a, &a) != 0) return 1;
         read_memory((a | (vpn[i] * PTESIZE)), PTESIZE, (char *)&nl_pte.raw);
         if ( nl_pte.V == 0 ) {
             nl_pte.V = 1;
-            nl_pte.PPN = get_free_ppn(1);
+            nl_pte.PPN = get_free_gppn(1, 1, iohgatp);
             write_memory((char *)&nl_pte.raw, (a | (vpn[i] * PTESIZE)), PTESIZE);
         }
         i = i - 1;
         if ( i < 0 ) return 1;
         a = nl_pte.PPN * PAGESIZE;
     }
+    if ( translate_gpa(iohgatp, a, &a) != 0) return 1;
     write_memory((char *)&pte.raw, (a | (vpn[i] * PTESIZE)), PTESIZE);
     return 0;
 }

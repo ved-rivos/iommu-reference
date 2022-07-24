@@ -276,11 +276,7 @@ typedef union {
     //  {bits: 63:60: 'MODE'
     // The encoding of the `iosatp`/`iovsatp` `MODE` field are as the same as the
     // encoding for `MODE` field in the `satp` CSR.
-    struct {
-        uint64_t PPN:44; 
-        uint64_t reserved:15; 
-        uint64_t MODE:4; 
-    };
+    iosatp_t iosatp;
     uint64_t raw;
 } pc_fsc_t;
 
