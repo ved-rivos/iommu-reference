@@ -16,6 +16,7 @@ main(void) {
     ddtp_t ddtp;
     device_context_t DC;
     gpte_t gpte;
+    pte_t pte;
     hb_to_iommu_req_t req; 
     iommu_to_hb_rsp_t rsp_msg;
 
@@ -121,6 +122,88 @@ main(void) {
     printf("  PBMT       = %x\n", tr_response.PBMT);
     tr_req_ctrl.raw = read_register(TR_REQ_CTRL_OFFSET, 8);
     printf("  busy       = %x\n", tr_req_ctrl.go_busy);
+
+//////////////////////////
+    memset(&DC, 0, sizeof(DC));
+    DC.tc.V = 1;
+    DC.tc.EN_ATS = 1;
+    DC.fsc.iosatp.MODE = IOSATP_Sv48;
+    DC.fsc.iosatp.PPN = get_free_ppn(1);
+    DC.iohgatp.MODE = IOHGATP_Bare;
+    add_dev_context(&DC, 0x012346);
+    printf("Adding DC for device 0x012346\n");
+    printf("    DC.tc.EN_ATS       = %x\n", DC.tc.EN_ATS);
+    printf("    DC.iohgatp.PPN     = %"PRIx64"\n", (uint64_t)DC.iohgatp.PPN);
+    printf("    DC.iohgatp.MODE    = %x\n", DC.iohgatp.MODE);
+    printf("    DC.fsc.iosatp.MODE = %x\n", DC.fsc.iosatp.MODE);
+    printf("    DC.fsc.iosatp.PPN  = %"PRIx64"\n", (uint64_t)DC.fsc.iosatp.PPN);
+
+    pte.raw = 0;
+    pte.V = 1;
+    pte.R = 1;
+    pte.W = 1;
+    pte.X = 1;
+    pte.U = 1;
+    pte.G = 0;
+    pte.A = 1;
+    pte.D = 1;
+    pte.PPN = get_free_ppn(512);
+    pte.PBMT = PMA;
+
+    printf("Adding a VA translation: VA = 0x%x\n", (PAGESIZE * 512));
+    printf("  SPA : %"PRIx64"\n", (uint64_t)pte.PPN);
+    printf("  R : %x\n", pte.R);
+    printf("  W : %x\n", pte.W);
+    printf("  C : %x\n", pte.X);
+    add_s_stage_pte(DC.fsc.iosatp, (PAGESIZE * 512), pte, 1);
+
+
+    printf("Sending translation request for VA = 0x100000\n");
+    req.device_id = 0x012346;
+    req.pid_valid = 0;
+    req.is_cxl_dev = 0;
+    req.tr.at = ADDR_TYPE_PCIE_ATS_TRANSLATION_REQUEST;
+    //req.tr.at = ADDR_TYPE_UNTRANSLATED;
+    req.tr.iova = (512 * PAGESIZE);
+    req.tr.length = 64;
+    req.tr.read_writeAMO = READ;
+
+    iommu_translate_iova(req, &rsp_msg);
+    printf("Translation received \n");
+    printf("  Status     = %x \n", rsp_msg.status);
+    printf("  PPN        = %"PRIx64"\n", rsp_msg.trsp.PPN);
+    printf("  S          = %x\n", rsp_msg.trsp.S);
+    printf("  N          = %x\n", rsp_msg.trsp.N);
+    printf("  CXL_IO     = %x\n", rsp_msg.trsp.CXL_IO);
+    printf("  Global     = %x\n", rsp_msg.trsp.Global);
+    printf("  Priv       = %x\n", rsp_msg.trsp.Priv);
+    printf("  U          = %x\n", rsp_msg.trsp.U);
+    printf("  R          = %x\n", rsp_msg.trsp.R);
+    printf("  W          = %x\n", rsp_msg.trsp.W);
+    printf("  Exe        = %x\n", rsp_msg.trsp.Exe);
+    printf("  AMA        = %x\n", rsp_msg.trsp.AMA);
+    printf("  PBMT       = %x\n", rsp_msg.trsp.PBMT);
+    printf("  is_msi     = %x\n", rsp_msg.trsp.is_msi);
+    printf("  is_mrif_wr = %x\n", rsp_msg.trsp.is_mrif_wr);
+    printf("  mrif_nid   = %x\n", rsp_msg.trsp.mrif_nid);
+
+    tr_req_iova.raw = (512 * PAGESIZE);
+    tr_req_ctrl.DID = 0x012346;
+    tr_req_ctrl.PV = 0;
+    tr_req_ctrl.RWn = 1;
+    tr_req_ctrl.go_busy = 1;
+    write_register(TR_REQ_IOVA_OFFSET, 8, tr_req_iova.raw);
+    write_register(TR_REQ_CTRL_OFFSET, 8, tr_req_ctrl.raw);
+    tr_response.raw = read_register(TR_RESPONSE_OFFSET, 8);
+    printf("Translation received \n");
+    printf("  Status     = %x \n", tr_response.fault);
+    printf("  PPN        = %"PRIx64"\n", (uint64_t)tr_response.PPN);
+    printf("  S          = %x\n", tr_response.S);
+    printf("  PBMT       = %x\n", tr_response.PBMT);
+    tr_req_ctrl.raw = read_register(TR_REQ_CTRL_OFFSET, 8);
+    printf("  busy       = %x\n", tr_req_ctrl.go_busy);
+
+
 
 
 

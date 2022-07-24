@@ -5,6 +5,7 @@
 #include "iommu.h"
 #ifndef __TABLES_API_H__
 #define __TABLES_API_H__
-uint8_t add_dev_context( device_context_t *DC, uint32_t device_id);
-uint8_t add_g_stage_pte( iohgatp_t iohgatp, uint64_t gpa, gpte_t gpte, uint8_t add_level);
+uint8_t add_dev_context(device_context_t *DC, uint32_t device_id);
+uint8_t add_g_stage_pte(iohgatp_t iohgatp, uint64_t gpa, gpte_t gpte, uint8_t add_level);
+uint8_t add_s_stage_pte(iosatp_t satp, uint64_t va, pte_t pte, uint8_t add_level);
 #endif // __TABLES_API_H__
