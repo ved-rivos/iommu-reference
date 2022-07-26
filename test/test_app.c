@@ -204,7 +204,7 @@ main(void) {
     DC.iohgatp.MODE = IOHGATP_Sv48x4;
     DC.iohgatp.PPN = get_free_ppn(4);
     DC.fsc.iosatp.MODE = IOSATP_Sv48;
-    DC.fsc.iosatp.PPN = get_free_gppn(1, 1, DC.iohgatp);
+    DC.fsc.iosatp.PPN = get_free_gppn(1, 0, DC.iohgatp);
 
     add_dev_context(&DC, 0x012347);
     printf("Adding DC for device 0x012347\n");
@@ -219,7 +219,7 @@ main(void) {
     pte.G = 0;
     pte.A = 1;
     pte.D = 1;
-    pte.PPN = get_free_gppn(512, 1, DC.iohgatp);
+    pte.PPN = get_free_gppn(512, 0, DC.iohgatp);
     pte.PBMT = PMA;
 
     translate_gpa(DC.iohgatp, (pte.PPN * PAGESIZE), &SPA);
@@ -285,14 +285,14 @@ main(void) {
     DC.iohgatp.MODE = IOHGATP_Sv48x4;
     DC.iohgatp.PPN = get_free_ppn(4);
     DC.fsc.pdtp.MODE = PD20;
-    DC.fsc.pdtp.PPN = get_free_gppn(1, 1, DC.iohgatp);
+    DC.fsc.pdtp.PPN = get_free_gppn(1, 0, DC.iohgatp);
 
     add_dev_context(&DC, 0x012348);
     print_dev_context(&DC, 0x12348);
 
     process_context_t PC; 
     PC.fsc.iosatp.MODE = IOSATP_Sv48;
-    PC.fsc.iosatp.PPN = get_free_gppn(1, 1, DC.iohgatp);
+    PC.fsc.iosatp.PPN = get_free_gppn(1, 0, DC.iohgatp);
     PC.fsc.iosatp.reserved = 0;
     PC.ta.V = 1;
     PC.ta.ENS = 1;
@@ -311,7 +311,7 @@ main(void) {
     pte.G = 0;
     pte.A = 1;
     pte.D = 1;
-    pte.PPN = get_free_gppn(512, 1, DC.iohgatp);
+    pte.PPN = get_free_gppn(512, 0, DC.iohgatp);
     pte.PBMT = PMA;
 
     translate_gpa(DC.iohgatp, (pte.PPN * PAGESIZE), &SPA);

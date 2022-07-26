@@ -30,7 +30,7 @@ add_process_context(
             pdte.V = 1;
             pdte.reserved0 = pdte.reserved1 = 0;
             pdte.PPN = (DC->iohgatp.MODE == IOHGATP_Bare) ?
-                       get_free_ppn(1) : get_free_gppn(1, 1, DC->iohgatp);
+                       get_free_ppn(1) : get_free_gppn(1, 0, DC->iohgatp);
             write_memory((char *)&pdte.raw, (a + (PDI[i] * 8)), 8);
         }
         i = i - 1;
