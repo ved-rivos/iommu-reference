@@ -23,15 +23,7 @@ g_stage_address_translation(
 
     *GR = *GW = *GX = *GPBMT = 0;
 
-    // Indicate G-stage page size as largest possible page size
-    if ( g_reg_file.capabilities.Sv57x4 == 1 ) 
-        *gst_page_sz = 512UL * 512UL * 512UL * 512UL * PAGESIZE;
-    else if ( g_reg_file.capabilities.Sv48x4 == 1 ) 
-        *gst_page_sz = 512UL * 512UL * 512UL * PAGESIZE;
-    else if ( g_reg_file.capabilities.Sv39x4 == 1 ) 
-        *gst_page_sz = 512UL * 512UL * PAGESIZE;
-    else if ( g_reg_file.capabilities.Sv32x4 == 1 ) 
-        *gst_page_sz = 2UL * 512UL * PAGESIZE;
+    *gst_page_sz = PAGESIZE;
     
     if ( iohgatp.MODE == IOHGATP_Bare ) {
         // No translation or protection.
@@ -39,6 +31,15 @@ g_stage_address_translation(
         gpte.PPN = gpa / PAGESIZE;
         gpte.D = gpte.A = gpte.G = gpte.U = gpte.X = gpte.W = gpte.R = gpte.V = 1;
         gpte.PBMT = PMA;
+        // Indicate G-stage page size as largest possible page size
+        if ( g_reg_file.capabilities.Sv57x4 == 1 ) 
+            *gst_page_sz = 512UL * 512UL * 512UL * 512UL * PAGESIZE;
+        else if ( g_reg_file.capabilities.Sv48x4 == 1 ) 
+            *gst_page_sz = 512UL * 512UL * 512UL * PAGESIZE;
+        else if ( g_reg_file.capabilities.Sv39x4 == 1 ) 
+            *gst_page_sz = 512UL * 512UL * PAGESIZE;
+        else if ( g_reg_file.capabilities.Sv32x4 == 1 ) 
+            *gst_page_sz = 2UL * 512UL * PAGESIZE;
         goto step_8;
     }
     // 1. Let a be satp.ppn × PAGESIZE, and let i = LEVELS − 1. PAGESIZE is 2^12. (For Sv32, 

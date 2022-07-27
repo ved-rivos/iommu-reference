@@ -49,7 +49,7 @@ add_vs_stage_pte (
         read_memory((a | (vpn[i] * PTESIZE)), PTESIZE, (char *)&nl_pte.raw);
         if ( nl_pte.V == 0 ) {
             nl_pte.V = 1;
-            nl_pte.PPN = get_free_gppn(1, 0, iohgatp);
+            nl_pte.PPN = get_free_gppn(1, 1, iohgatp);
             write_memory((char *)&nl_pte.raw, (a | (vpn[i] * PTESIZE)), PTESIZE);
         }
         i = i - 1;
