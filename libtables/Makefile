@@ -13,4 +13,4 @@ lib$(NAME).a: $(OBJS)
 OBJ_APP = $(SRCS_APP:.c=.o)
 
 clean:
-	$(RM) src/*.o *.a* tags log
+	$(RM) src/*.o *.a* tags log src/*.gc* src/*.gcov *.gcov
